@@ -52,6 +52,7 @@
   class MusicPlayer {
     constructor() {
       this.player = null;
+      this.ready = false;
       this.apiReady = false;
       this.apiLoading = false;
       this.pendingSource = null;
@@ -63,8 +64,9 @@
       this.currentTitle = '';
       this.currentAuthor = '';
       this.currentVideoId = '';
+      this.playlistIds = [];
       this.playlistIndex = -1;
-      this.playlistLength = 0;
+      this.metaCache = new Map();
       this.consecutiveErrors = 0;
       this.onStateChange = null;
     }
@@ -92,13 +94,47 @@
       return this._apiPromise;
     }
 
+    async fetchVideoMeta(videoId) {
+      if (!videoId) return null;
+      if (this.metaCache.has(videoId)) return this.metaCache.get(videoId);
+      const placeholder = {
+        videoId,
+        title: `YouTube (${videoId})`,
+        author: '',
+        thumb: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+      };
+      this.metaCache.set(videoId, placeholder);
+      try {
+        const res = await fetch(
+          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const meta = {
+            videoId,
+            title: data.title || placeholder.title,
+            author: data.author_name || '',
+            thumb: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+          };
+          this.metaCache.set(videoId, meta);
+          this.onStateChange?.();
+          return meta;
+        }
+      } catch (_) {}
+      return placeholder;
+    }
+
     async load(item, autoPlay = false) {
       if (!item) return;
       this.activeItem = item;
       this.pendingSource = { item, autoPlay };
       this.consecutiveErrors = 0;
-      await this.ensureApi();
+      if (item.videoId) {
+        this.currentVideoId = item.videoId;
+        this.fetchVideoMeta(item.videoId);
+      }
 
+      await this.ensureApi();
       const container = document.getElementById('yt-music-host');
       if (!container) return;
 
@@ -109,9 +145,11 @@
           rel: 0,
           playsinline: 1,
           enablejsapi: 1,
-          origin: window.location.origin,
           loop: this.loop ? 1 : 0,
         };
+        if (window.location.protocol.startsWith('http')) {
+          playerVars.origin = window.location.origin;
+        }
         if (item.kind === 'playlist') {
           playerVars.listType = 'playlist';
           playerVars.list = item.listId;
@@ -120,14 +158,14 @@
           playerVars.playlist = item.videoId;
         }
 
-        // YouTube throttles/blocks 1x1 players; keep a 240x135 visually hidden player
         this.player = new window.YT.Player('yt-music-host', {
-          height: '135',
-          width: '240',
+          height: '180',
+          width: '320',
           videoId: item.videoId || undefined,
           playerVars,
           events: {
             onReady: () => {
+              this.ready = true;
               this.applyAudio();
               this.player.setLoop?.(this.loop);
               if (this.pendingSource?.autoPlay) {
@@ -149,9 +187,8 @@
               this.onStateChange?.();
             },
             onError: () => {
-              // Auto-skip unavailable, private, or embed-blocked videos in playlists
               this.consecutiveErrors += 1;
-              if (this.activeItem?.kind === 'playlist' && this.consecutiveErrors <= 10) {
+              if (this.activeItem?.kind === 'playlist' && this.consecutiveErrors <= 12) {
                 setTimeout(() => {
                   this.player?.nextVideo?.();
                 }, 250);
@@ -159,7 +196,7 @@
             },
           },
         });
-      } else {
+      } else if (this.ready) {
         if (item.kind === 'playlist') {
           const cfg = {
             list: item.listId,
@@ -180,7 +217,7 @@
         }
         this.player.setLoop?.(this.loop);
         this.applyAudio();
-        setTimeout(() => this.syncMeta(), 400);
+        setTimeout(() => this.syncMeta(), 450);
       }
     }
 
@@ -188,24 +225,69 @@
       try {
         const data = this.player?.getVideoData?.();
         if (data) {
+          if (data.video_id) this.currentVideoId = data.video_id;
           if (data.title) this.currentTitle = data.title;
           if (data.author) this.currentAuthor = data.author;
-          if (data.video_id) this.currentVideoId = data.video_id;
         }
+        if (this.currentVideoId) {
+          this.fetchVideoMeta(this.currentVideoId);
+        }
+
         const list = this.player?.getPlaylist?.();
-        if (Array.isArray(list)) {
-          this.playlistLength = list.length;
-          this.playlistIndex = this.player?.getPlaylistIndex?.() ?? -1;
+        if (Array.isArray(list) && list.length > 0) {
+          this.playlistIds = list;
+          this.playlistIndex = this.player?.getPlaylistIndex?.() ?? 0;
+          // Prefetch prev 1 and next 3 metadata
+          const neighbors = [
+            this.playlistIndex - 1,
+            this.playlistIndex + 1,
+            this.playlistIndex + 2,
+            this.playlistIndex + 3,
+          ];
+          neighbors.forEach((idx) => {
+            if (idx >= 0 && idx < list.length) {
+              this.fetchVideoMeta(list[idx]);
+            }
+          });
         } else {
-          this.playlistLength = 0;
+          this.playlistIds = [];
           this.playlistIndex = -1;
         }
         this.onStateChange?.();
       } catch (_) {}
     }
 
+    getQueuePreview() {
+      if (!this.playlistIds.length || this.playlistIndex < 0) {
+        return { prev: [], next: [] };
+      }
+      const prev = [];
+      const next = [];
+      if (this.playlistIndex - 1 >= 0) {
+        const vid = this.playlistIds[this.playlistIndex - 1];
+        prev.push({ index: this.playlistIndex - 1, ...(this.metaCache.get(vid) || { videoId: vid, title: vid, thumb: `https://img.youtube.com/vi/${vid}/default.jpg` }) });
+      }
+      for (let i = 1; i <= 3; i++) {
+        const idx = this.playlistIndex + i;
+        if (idx < this.playlistIds.length) {
+          const vid = this.playlistIds[idx];
+          next.push({ index: idx, ...(this.metaCache.get(vid) || { videoId: vid, title: vid, thumb: `https://img.youtube.com/vi/${vid}/default.jpg` }) });
+        }
+      }
+      return { prev, next };
+    }
+
+    playAt(index) {
+      if (!this.player || !this.ready) return;
+      this.consecutiveErrors = 0;
+      this.player.playVideoAt?.(index);
+    }
+
     togglePlay() {
-      if (!this.player) return;
+      if (!this.player || !this.ready) {
+        if (this.activeItem) this.load(this.activeItem, true);
+        return;
+      }
       if (this.isPlaying) {
         this.player.pauseVideo?.();
       } else {
@@ -235,7 +317,7 @@
     }
 
     applyAudio() {
-      if (!this.player) return;
+      if (!this.player || !this.ready) return;
       if (this.muted) {
         this.player.mute?.();
       } else {

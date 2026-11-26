@@ -55,6 +55,7 @@
     },
     music: {
       showWidget: true,
+      shortcutsEnabled: true,
       enabled: true,
       volume: 65,
       loop: true,
@@ -174,6 +175,7 @@
     sliderBgVolume: document.getElementById('slider-bg-volume'),
     valBgVolume: document.getElementById('val-bg-volume'),
     musicWidget: document.getElementById('music-widget'),
+    mwQueuePopover: document.getElementById('mw-queue-popover'),
     mwThumb: document.getElementById('mw-thumb'),
     mwEq: document.getElementById('mw-eq'),
     mwPrev: document.getElementById('mw-prev'),
@@ -188,6 +190,8 @@
     mwIconVol: document.getElementById('mw-icon-vol'),
     mwIconMuted: document.getElementById('mw-icon-muted'),
     toggleMusicWidget: document.getElementById('toggle-music-widget'),
+    toggleMusicKeys: document.getElementById('toggle-music-keys'),
+    drawerMusicQueue: document.getElementById('drawer-music-queue'),
     drawerMusicPrev: document.getElementById('drawer-music-prev'),
     drawerMusicPlay: document.getElementById('drawer-music-play'),
     drawerMusicNext: document.getElementById('drawer-music-next'),
@@ -427,9 +431,46 @@
     }
 
     if (el.toggleMusicWidget) el.toggleMusicWidget.checked = m.showWidget;
+    if (el.toggleMusicKeys) el.toggleMusicKeys.checked = m.shortcutsEnabled !== false;
     if (el.toggleMusicEnabled) el.toggleMusicEnabled.checked = m.enabled;
     if (el.sliderMusicVolume) el.sliderMusicVolume.value = m.volume;
     if (el.valMusicVolume) el.valMusicVolume.textContent = `${m.volume}%`;
+
+    renderMusicQueue();
+  }
+
+  function renderMusicQueue() {
+    const { prev, next } = window.OdakMusic.player.getQueuePreview();
+    const rows = [
+      ...prev.map((item) => ({ ...item, tag: tr('queuePrev') })),
+      ...next.map((item) => ({ ...item, tag: tr('queueNext') })),
+    ];
+
+    const populate = (container) => {
+      if (!container) return;
+      container.innerHTML = '';
+      if (rows.length === 0) {
+        container.classList.add('hidden');
+        return;
+      }
+      container.classList.remove('hidden');
+      rows.forEach((r) => {
+        const div = document.createElement('div');
+        div.className = 'queue-row';
+        div.innerHTML = `
+          <img class="queue-thumb" src="${r.thumb}" alt="" loading="lazy" />
+          <div class="queue-meta">
+            <div class="queue-tag">${r.tag}</div>
+            <div class="queue-title">${r.title}</div>
+          </div>
+        `;
+        div.addEventListener('click', () => window.OdakMusic.player.playAt(r.index));
+        container.appendChild(div);
+      });
+    };
+
+    populate(el.mwQueuePopover);
+    populate(el.drawerMusicQueue);
   }
 
   function renderMusicList() {
@@ -1079,6 +1120,10 @@
       persist();
       syncMusicUI();
     });
+    el.toggleMusicKeys?.addEventListener('change', (e) => {
+      state.music.shortcutsEnabled = e.target.checked;
+      persist();
+    });
     el.toggleMusicEnabled?.addEventListener('change', (e) => {
       state.music.enabled = e.target.checked;
       persist();
@@ -1139,6 +1184,12 @@
       } else if (e.key === 's' || e.key === 'S') {
         if (el.drawer.classList.contains('open')) closeDrawer();
         else openDrawer();
+      } else if (state.music.shortcutsEnabled !== false && (e.key === 'p' || e.key === 'P')) {
+        el.mwPlay?.click();
+      } else if (state.music.shortcutsEnabled !== false && e.key === '[') {
+        window.OdakMusic.player.prev();
+      } else if (state.music.shortcutsEnabled !== false && e.key === ']') {
+        window.OdakMusic.player.next();
       } else if (e.key === 'Escape') {
         closeDrawer();
       }
@@ -1254,6 +1305,10 @@
     applyLanguage();
     window.OdakMusic.player.onStateChange = syncMusicUI;
     window.OdakMusic.player.setLoop(state.music.loop);
+    const activeMusic = state.music.items.find((x) => x.id === state.music.activeId) || state.music.items[0];
+    if (activeMusic) {
+      window.OdakMusic.player.load(activeMusic, false);
+    }
     renderMusicList();
     syncMusicUI();
     bindEvents();
