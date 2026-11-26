@@ -56,6 +56,7 @@
     music: {
       showWidget: true,
       shortcutsEnabled: true,
+      scale: 100,
       enabled: true,
       volume: 65,
       loop: true,
@@ -189,6 +190,12 @@
     mwMute: document.getElementById('mw-mute'),
     mwIconVol: document.getElementById('mw-icon-vol'),
     mwIconMuted: document.getElementById('mw-icon-muted'),
+    mwVolPopover: document.getElementById('mw-vol-popover'),
+    mwVolSlider: document.getElementById('mw-vol-slider'),
+    mwVolPct: document.getElementById('mw-vol-pct'),
+    mwVolToggleMute: document.getElementById('mw-vol-toggle-mute'),
+    sliderMusicScale: document.getElementById('slider-music-scale'),
+    valMusicScale: document.getElementById('val-music-scale'),
     toggleMusicWidget: document.getElementById('toggle-music-widget'),
     toggleMusicKeys: document.getElementById('toggle-music-keys'),
     drawerMusicQueue: document.getElementById('drawer-music-queue'),
@@ -435,6 +442,12 @@
     if (el.toggleMusicEnabled) el.toggleMusicEnabled.checked = m.enabled;
     if (el.sliderMusicVolume) el.sliderMusicVolume.value = m.volume;
     if (el.valMusicVolume) el.valMusicVolume.textContent = `${m.volume}%`;
+    if (el.mwVolSlider) el.mwVolSlider.value = m.volume;
+    if (el.mwVolPct) el.mwVolPct.textContent = musicAudible ? `${m.volume}%` : '0%';
+    const scale = m.scale || 100;
+    document.documentElement.style.setProperty('--music-scale', (scale / 100).toFixed(2));
+    if (el.sliderMusicScale) el.sliderMusicScale.value = scale;
+    if (el.valMusicScale) el.valMusicScale.textContent = `${scale}%`;
 
     renderMusicQueue();
   }
@@ -1109,10 +1122,27 @@
     el.drawerMusicPrev?.addEventListener('click', () => window.OdakMusic.player.prev());
     el.mwLoop?.addEventListener('click', toggleMusicLoop);
     el.drawerMusicLoop?.addEventListener('click', toggleMusicLoop);
-    el.mwMute?.addEventListener('click', () => {
+    el.mwMute?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      el.mwVolPopover?.classList.toggle('hidden');
+    });
+    el.mwVolPopover?.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', () => el.mwVolPopover?.classList.add('hidden'));
+    el.mwVolSlider?.addEventListener('input', (e) => {
+      state.music.volume = Number(e.target.value);
+      if (state.music.volume > 0) state.music.enabled = true;
+      persist();
+      applyAudio();
+    });
+    el.mwVolToggleMute?.addEventListener('click', () => {
       state.music.enabled = !state.music.enabled;
       persist();
       applyAudio();
+    });
+    el.sliderMusicScale?.addEventListener('input', (e) => {
+      state.music.scale = Number(e.target.value);
+      persist();
+      syncMusicUI();
     });
 
     el.toggleMusicWidget?.addEventListener('change', (e) => {

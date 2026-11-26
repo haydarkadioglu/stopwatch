@@ -1322,7 +1322,35 @@ input[type='range'] {
   backdrop-filter: blur(22px);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
   max-width: 340px;
-  transition: max-width 280ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 200ms ease;
+  transform: scale(var(--music-scale, 1));
+  transform-origin: center bottom;
+  transition: max-width 280ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 200ms ease, transform 180ms ease;
+}
+
+.mw-vol-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.mw-vol-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(12, 15, 24, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+  z-index: 40;
+}
+
+.mw-vol-popover input[type='range'] {
+  width: 100px;
 }
 
 .mw-main-row {
@@ -1333,9 +1361,17 @@ input[type='range'] {
 }
 
 .music-widget:hover,
-.music-widget:focus-within {
+.music-widget:focus-within,
+.music-widget:has(.mw-vol-popover:not(.hidden)) {
   max-width: min(580px, 95vw);
   border-color: rgba(255, 255, 255, 0.3);
+}
+
+.music-widget:has(.mw-vol-popover:not(.hidden)) .mw-extra {
+  width: 34px;
+  opacity: 1;
+  margin: 0;
+  pointer-events: auto;
 }
 
 .mw-queue-popover {
