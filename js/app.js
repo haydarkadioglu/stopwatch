@@ -231,6 +231,8 @@
     }
     syncSlideshow();
     renderGallery();
+    renderMusicList();
+    syncMusicUI();
     updateCacheUsage();
   }
 
@@ -371,7 +373,8 @@
       el.musicWidget.classList.toggle('hidden', !m.showWidget || !hasItems);
     }
     if (el.mwTitle) {
-      el.mwTitle.textContent = p.currentTitle || activeItem?.title || 'YouTube Music';
+      const displayTitle = activeItem?.id === 'music-sample-1' ? tr('musicSampleTitle') : activeItem?.title;
+      el.mwTitle.textContent = p.currentTitle || displayTitle || 'YouTube Music';
     }
     if (el.mwPlay) {
       el.mwPlay.textContent = p.isPlaying ? '⏸' : '▶';
@@ -395,13 +398,14 @@
     state.music.items.forEach((item) => {
       const row = document.createElement('div');
       row.className = 'music-item' + (item.id === state.music.activeId ? ' active' : '');
-      const typeLabel = item.kind === 'playlist' ? 'Playlist' : 'Tek Parça (Loop)';
+      const typeLabel = item.kind === 'playlist' ? tr('musicTypePlaylist') : tr('musicTypeSingle');
+      const itemTitle = item.id === 'music-sample-1' ? tr('musicSampleTitle') : item.title;
       row.innerHTML = `
         <div class="music-item-meta">
-          <div class="music-item-title">${item.title}</div>
+          <div class="music-item-title">${itemTitle}</div>
           <div class="music-item-sub">${typeLabel}</div>
         </div>
-        <button class="music-item-del" title="Sil">&times;</button>
+        <button class="music-item-del" title="×">&times;</button>
       `;
 
       row.querySelector('.music-item-del').addEventListener('click', (e) => {
