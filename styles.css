@@ -173,12 +173,16 @@ body.zen-idle .timer-card {
   letter-spacing: 0.14em;
 }
 
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent);
+.brand-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  display: block;
+}
+
+.install-btn {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.16);
 }
 
 .task-input-wrap {
@@ -484,6 +488,75 @@ body.card-solid .timer-card {
   color: var(--accent);
   margin-left: 6px;
   opacity: 0.92;
+}
+
+.digital-clock-wrap {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.analog-clock-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.analog-clock-svg {
+  width: clamp(190px, 28vw, 250px);
+  height: clamp(190px, 28vw, 250px);
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.45));
+}
+
+.analog-face {
+  fill: rgba(10, 13, 22, 0.42);
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 2.5;
+}
+
+.analog-tick {
+  stroke: rgba(248, 250, 252, 0.42);
+  stroke-linecap: round;
+}
+
+.analog-tick.major {
+  stroke: rgba(248, 250, 252, 0.85);
+}
+
+.analog-hand {
+  stroke-linecap: round;
+  transform-origin: 120px 120px;
+}
+
+.hour-hand {
+  stroke: var(--text-main);
+  stroke-width: 5.5;
+}
+
+.minute-hand {
+  stroke: var(--text-main);
+  stroke-width: 3.8;
+}
+
+.second-hand {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.analog-pivot {
+  fill: var(--accent);
+  stroke: var(--text-main);
+  stroke-width: 1.5;
+}
+
+.analog-subreadout {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Countdown Progress Bar */
@@ -1138,7 +1211,8 @@ input[type='range'] {
 }
 
 .font-option,
-.style-option {
+.style-option,
+.clock-type-option {
   padding: 10px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -1151,7 +1225,8 @@ input[type='range'] {
 }
 
 .font-option.active,
-.style-option.active {
+.style-option.active,
+.clock-type-option.active {
   border-color: var(--accent);
   background: rgba(255, 255, 255, 0.14);
   font-weight: 600;

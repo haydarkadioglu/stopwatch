@@ -32,11 +32,12 @@
       quality: 'auto',
     },
     design: {
+      clockType: 'digital',
       font: 'font-outfit',
       clockScale: 100,
       accent: '#f59e0b',
       cardStyle: 'card-glass',
-      showMs: true,
+      showMs: false,
       showTask: true,
       showQuote: true,
       zenMode: false,
@@ -55,10 +56,18 @@
   let slideshowTimer = null;
   let idleTimer = null;
   let toastTimer = null;
+  let deferredInstallPrompt = null;
 
   // DOM Elements
   const el = {
     body: document.body,
+    digitalClockWrap: document.getElementById('digital-clock-wrap'),
+    analogClockWrap: document.getElementById('analog-clock-wrap'),
+    analogTicks: document.getElementById('analog-ticks'),
+    handHour: document.getElementById('hand-hour'),
+    handMinute: document.getElementById('hand-minute'),
+    handSecond: document.getElementById('hand-second'),
+    analogSubreadout: document.getElementById('analog-subreadout'),
     timerDisplay: document.getElementById('timer-display'),
     timerMs: document.getElementById('timer-ms'),
     startPauseBtn: document.getElementById('btn-start-pause'),
@@ -84,6 +93,7 @@
     taskInputWrap: document.getElementById('task-input-wrap'),
     hudLangSelect: document.getElementById('hud-lang-select'),
     drawerLangSelect: document.getElementById('drawer-lang-select'),
+    btnInstall: document.getElementById('btn-install'),
     focusQuote: document.getElementById('focus-quote'),
     btnNextBg: document.getElementById('btn-next-bg'),
     btnMute: document.getElementById('btn-mute'),
@@ -117,6 +127,7 @@
     btnAddUrl: document.getElementById('btn-add-url'),
     bgGallery: document.getElementById('bg-gallery'),
     cacheUsageLabel: document.getElementById('cache-usage-label'),
+    clockTypeOptions: document.querySelectorAll('.clock-type-option'),
     fontOptions: document.querySelectorAll('.font-option'),
     sliderClockSize: document.getElementById('slider-clock-size'),
     valClockSize: document.getElementById('val-clock-size'),
@@ -233,6 +244,11 @@
     el.body.classList.remove('card-glass', 'card-minimal', 'card-solid');
     el.body.classList.add(d.cardStyle);
 
+    const isAnalog = d.clockType === 'analog';
+    el.digitalClockWrap.classList.toggle('hidden', isAnalog);
+    el.analogClockWrap.classList.toggle('hidden', !isAnalog);
+    el.clockTypeOptions.forEach((btn) => btn.classList.toggle('active', btn.dataset.clockType === d.clockType));
+
     el.timerMs.classList.toggle('hidden', !d.showMs);
     el.taskInputWrap.classList.toggle('hidden', !d.showTask);
     el.focusQuote.classList.toggle('hidden', !d.showQuote);
@@ -291,6 +307,18 @@
     const parts = window.OdakTimer.formatTimeParts(currentMs);
     el.timerDisplay.textContent = parts.main;
     el.timerMs.textContent = parts.ms;
+    if (el.analogSubreadout) {
+      el.analogSubreadout.textContent = parts.main;
+    }
+    if (el.handSecond && el.handMinute && el.handHour) {
+      const totalSec = Math.max(0, currentMs) / 1000;
+      const secDeg = (totalSec % 60) * 6;
+      const minDeg = ((totalSec / 60) % 60) * 6;
+      const hourDeg = ((totalSec / 3600) % 12) * 30;
+      el.handSecond.style.transform = `rotate(${secDeg}deg)`;
+      el.handMinute.style.transform = `rotate(${minDeg}deg)`;
+      el.handHour.style.transform = `rotate(${hourDeg}deg)`;
+    }
 
     const isRunning = t.running;
     el.startPauseLabel.textContent = isRunning ? tr('pause') : tr('start');
@@ -721,6 +749,14 @@
     });
 
     // Design Tab Controls
+    el.clockTypeOptions.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.design.clockType = btn.dataset.clockType;
+        persist();
+        applyDesign();
+      });
+    });
+
     el.fontOptions.forEach((btn) => {
       btn.addEventListener('click', () => {
         state.design.font = btn.dataset.font;
@@ -850,9 +886,51 @@
     ['mousemove', 'mousedown', 'keydown', 'touchstart'].forEach((evt) => {
       document.addEventListener(evt, resetIdleTimer, { passive: true });
     });
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      if (el.btnInstall) el.btnInstall.classList.remove('hidden');
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      if (el.btnInstall) el.btnInstall.classList.add('hidden');
+    });
+
+    el.btnInstall?.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      el.btnInstall.classList.add('hidden');
+    });
+  }
+
+  function initAnalogClockTicks() {
+    if (!el.analogTicks || el.analogTicks.children.length > 0) return;
+    const ns = 'http://www.w3.org/2000/svg';
+    for (let i = 0; i < 60; i++) {
+      const isMajor = i % 5 === 0;
+      const angle = (i * 6 * Math.PI) / 180;
+      const rOuter = 100;
+      const rInner = isMajor ? 88 : 94;
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', (120 + rInner * Math.sin(angle)).toFixed(2));
+      line.setAttribute('y1', (120 - rInner * Math.cos(angle)).toFixed(2));
+      line.setAttribute('x2', (120 + rOuter * Math.sin(angle)).toFixed(2));
+      line.setAttribute('y2', (120 - rOuter * Math.cos(angle)).toFixed(2));
+      line.setAttribute('stroke-width', isMajor ? '2.5' : '1.2');
+      line.setAttribute('class', isMajor ? 'analog-tick major' : 'analog-tick');
+      el.analogTicks.appendChild(line);
+    }
   }
 
   async function init() {
+    initAnalogClockTicks();
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
     await window.OdakBackgrounds.init();
     applyActiveBackground(state.background.activeId);
 

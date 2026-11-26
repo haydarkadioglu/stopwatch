@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
+  <meta name="theme-color" content="#f59e0b" />
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <title>Odak — Online Çalışma Kronometresi &amp; Zamanlayıcı</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,7 +16,7 @@
     href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body class="font-outfit card-glass">
   <!-- Background Layers -->
@@ -30,7 +34,7 @@
     <header class="top-hud fade-on-idle">
       <div class="hud-left">
         <div class="brand-pill" title="Lokal önbellek aktif">
-          <span class="status-dot" id="cache-dot"></span>
+          <img src="assets/icon.svg" class="brand-logo" alt="" />
           <span class="brand-name" data-i18n="brand">ODAK</span>
         </div>
         <div class="task-input-wrap" id="task-input-wrap">
@@ -47,6 +51,20 @@
       </div>
 
       <div class="hud-right">
+        <button
+          id="btn-install"
+          class="icon-btn install-btn hidden"
+          title="Uygulamayı Bilgisayara Kur"
+          aria-label="Install App"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span class="btn-label-sm" data-i18n="installBtn">Yükle</span>
+        </button>
+
         <select id="hud-lang-select" class="hud-lang-select" aria-label="Language"></select>
 
         <button
@@ -173,8 +191,21 @@
 
         <!-- Main Clock Display -->
         <div class="timer-display-wrap" id="timer-display-wrap">
-          <div id="timer-display" class="timer-display" aria-live="off">00:00:00</div>
-          <div id="timer-ms" class="timer-ms">.00</div>
+          <div id="digital-clock-wrap" class="digital-clock-wrap">
+            <div id="timer-display" class="timer-display" aria-live="off">00:00:00</div>
+            <div id="timer-ms" class="timer-ms hidden">.00</div>
+          </div>
+          <div id="analog-clock-wrap" class="analog-clock-wrap hidden">
+            <svg class="analog-clock-svg" viewBox="0 0 240 240" aria-hidden="true">
+              <circle class="analog-face" cx="120" cy="120" r="108" />
+              <g id="analog-ticks"></g>
+              <line id="hand-hour" class="analog-hand hour-hand" x1="120" y1="120" x2="120" y2="68" />
+              <line id="hand-minute" class="analog-hand minute-hand" x1="120" y1="120" x2="120" y2="44" />
+              <line id="hand-second" class="analog-hand second-hand" x1="120" y1="132" x2="120" y2="32" />
+              <circle class="analog-pivot" cx="120" cy="120" r="5" />
+            </svg>
+            <div id="analog-subreadout" class="analog-subreadout">00:00:00</div>
+          </div>
         </div>
 
         <!-- Progress Bar (for Countdown) -->
@@ -346,6 +377,14 @@
         </div>
 
         <div class="control-group">
+          <label class="section-label" data-i18n="clockTypeLabel">Saat Görünümü</label>
+          <div class="font-grid">
+            <button class="clock-type-option active" data-clock-type="digital" data-i18n="clockDigital">Dijital</button>
+            <button class="clock-type-option" data-clock-type="analog" data-i18n="clockAnalog">Klasik Analog</button>
+          </div>
+        </div>
+
+        <div class="control-group">
           <label class="section-label" data-i18n="fontLabel">Yazı Tipi (Font)</label>
           <div class="font-grid">
             <button class="font-option active" data-font="font-outfit" data-i18n="fontModern">Modern</button>
@@ -496,11 +535,11 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <!-- Scripts (ordered so file:// and http:// both work seamlessly) -->
-  <script src="js/db.js?v=4"></script>
-  <script src="js/i18n.js?v=4"></script>
-  <script src="js/audio.js?v=4"></script>
-  <script src="js/backgrounds.js?v=4"></script>
-  <script src="js/timer.js?v=4"></script>
-  <script src="js/app.js?v=4"></script>
+  <script src="js/db.js?v=5"></script>
+  <script src="js/i18n.js?v=5"></script>
+  <script src="js/audio.js?v=5"></script>
+  <script src="js/backgrounds.js?v=5"></script>
+  <script src="js/timer.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>
