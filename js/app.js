@@ -41,6 +41,22 @@
       showTask: true,
       showQuote: true,
       zenMode: false,
+      keepAwake: false,
+    },
+    clock: {
+      primaryZone: 'auto',
+      dualEnabled: false,
+      secondaryZone: 'America/New_York',
+      showDate: true,
+      dateFormat: 'long',
+      hour24: true,
+      showSeconds: true,
+    },
+    weather: {
+      enabled: false,
+      city: '',
+      unit: 'c',
+      cached: null,
     },
     audio: {
       enabled: true,
@@ -81,6 +97,8 @@
   let idleTimer = null;
   let toastTimer = null;
   let alarmRepeatTimer = null;
+  let clockInterval = null;
+  let wakeLockSentinel = null;
   let deferredInstallPrompt = null;
   let expandedMusicId = null;
 
@@ -96,6 +114,20 @@
     analogSubreadout: document.getElementById('analog-subreadout'),
     timerDisplay: document.getElementById('timer-display'),
     timerMs: document.getElementById('timer-ms'),
+    timerAmpm: document.getElementById('timer-ampm'),
+    timerControls: document.getElementById('timer-controls'),
+    clockMetaRow: document.getElementById('clock-meta-row'),
+    clockDateText: document.getElementById('clock-date-text'),
+    clockZoneBadge: document.getElementById('clock-zone-badge'),
+    dualClockWrap: document.getElementById('dual-clock-wrap'),
+    dualZoneName: document.getElementById('dual-zone-name'),
+    dualZoneDate: document.getElementById('dual-zone-date'),
+    dualZoneTime: document.getElementById('dual-zone-time'),
+    weatherPill: document.getElementById('weather-pill'),
+    weatherIcon: document.getElementById('weather-icon'),
+    weatherTemp: document.getElementById('weather-temp'),
+    weatherDesc: document.getElementById('weather-desc'),
+    weatherCity: document.getElementById('weather-city'),
     startPauseBtn: document.getElementById('btn-start-pause'),
     startPauseLabel: document.getElementById('start-pause-label'),
     lapBtn: document.getElementById('btn-lap'),
@@ -165,6 +197,22 @@
     toggleTask: document.getElementById('toggle-task'),
     toggleQuote: document.getElementById('toggle-quote'),
     toggleZen: document.getElementById('toggle-zen'),
+    toggleKeepAwake: document.getElementById('toggle-keep-awake'),
+    selectPrimaryZone: document.getElementById('select-primary-zone'),
+    toggleDualZone: document.getElementById('toggle-dual-zone'),
+    secondaryZoneWrap: document.getElementById('secondary-zone-wrap'),
+    selectSecondaryZone: document.getElementById('select-secondary-zone'),
+    toggleShowDate: document.getElementById('toggle-show-date'),
+    dateFormatWrap: document.getElementById('date-format-wrap'),
+    selectDateFormat: document.getElementById('select-date-format'),
+    toggleHour24: document.getElementById('toggle-hour-24'),
+    toggleClockSeconds: document.getElementById('toggle-clock-seconds'),
+    toggleWeather: document.getElementById('toggle-weather'),
+    weatherSetupWrap: document.getElementById('weather-setup-wrap'),
+    inputWeatherCity: document.getElementById('input-weather-city'),
+    btnApplyWeather: document.getElementById('btn-apply-weather'),
+    btnLocateWeather: document.getElementById('btn-locate-weather'),
+    selectWeatherUnit: document.getElementById('select-weather-unit'),
     btnResetDesign: document.getElementById('btn-reset-design'),
     toggleSoundEnabled: document.getElementById('toggle-sound-enabled'),
     sliderVolume: document.getElementById('slider-volume'),
@@ -243,11 +291,42 @@
     });
   }
 
+  function populateTimezoneSelects() {
+    if (!window.OdakWorld) return;
+    const zones = window.OdakWorld.TIMEZONES;
+    const localCity = window.OdakWorld.getZoneShortName('auto');
+
+    if (el.selectPrimaryZone) {
+      el.selectPrimaryZone.innerHTML = '';
+      zones.forEach((z) => {
+        const opt = document.createElement('option');
+        opt.value = z.id;
+        opt.textContent = z.id === 'auto' ? `${tr('localZoneAuto')} · ${localCity}` : z.label;
+        el.selectPrimaryZone.appendChild(opt);
+      });
+      el.selectPrimaryZone.value = state.clock.primaryZone || 'auto';
+    }
+
+    if (el.selectSecondaryZone) {
+      el.selectSecondaryZone.innerHTML = '';
+      zones
+        .filter((z) => z.id !== 'auto')
+        .forEach((z) => {
+          const opt = document.createElement('option');
+          opt.value = z.id;
+          opt.textContent = z.label;
+          el.selectSecondaryZone.appendChild(opt);
+        });
+      el.selectSecondaryZone.value = state.clock.secondaryZone || 'America/New_York';
+    }
+  }
+
   function applyLanguage() {
     const lang = state.language || 'tr';
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     populateLangSelects();
+    populateTimezoneSelects();
 
     document.querySelectorAll('[data-i18n]').forEach((node) => {
       node.textContent = tr(node.dataset.i18n);
@@ -265,6 +344,7 @@
     renderGallery();
     renderMusicList();
     syncMusicUI();
+    renderWeatherPill();
     updateCacheUsage();
   }
 
@@ -353,6 +433,26 @@
     el.toggleTask.checked = d.showTask;
     el.toggleQuote.checked = d.showQuote;
     el.toggleZen.checked = d.zenMode;
+    if (el.toggleKeepAwake) el.toggleKeepAwake.checked = Boolean(d.keepAwake);
+
+    const c = state.clock;
+    if (el.selectPrimaryZone) el.selectPrimaryZone.value = c.primaryZone || 'auto';
+    if (el.toggleDualZone) el.toggleDualZone.checked = Boolean(c.dualEnabled);
+    if (el.secondaryZoneWrap) el.secondaryZoneWrap.classList.toggle('hidden', !c.dualEnabled);
+    if (el.selectSecondaryZone) el.selectSecondaryZone.value = c.secondaryZone || 'America/New_York';
+    if (el.toggleShowDate) el.toggleShowDate.checked = Boolean(c.showDate);
+    if (el.dateFormatWrap) el.dateFormatWrap.classList.toggle('hidden', !c.showDate);
+    if (el.selectDateFormat) el.selectDateFormat.value = c.dateFormat || 'long';
+    if (el.toggleHour24) el.toggleHour24.checked = c.hour24 !== false;
+    if (el.toggleClockSeconds) el.toggleClockSeconds.checked = c.showSeconds !== false;
+
+    const w = state.weather;
+    if (el.toggleWeather) el.toggleWeather.checked = Boolean(w.enabled);
+    if (el.weatherSetupWrap) el.weatherSetupWrap.classList.toggle('hidden', !w.enabled);
+    if (el.inputWeatherCity && document.activeElement !== el.inputWeatherCity) {
+      el.inputWeatherCity.value = w.city || '';
+    }
+    if (el.selectWeatherUnit) el.selectWeatherUnit.value = w.unit || 'c';
 
     if (!d.zenMode) {
       el.body.classList.remove('zen-idle');
@@ -687,8 +787,102 @@
     }
   }
 
+  function syncClockLoop() {
+    clearInterval(clockInterval);
+    if (state.timer.mode === 'clock') {
+      clockInterval = setInterval(() => renderTimerUI(0), 250);
+    }
+  }
+
   function renderTimerUI(currentMs) {
     const t = state.timer;
+    const isClock = t.mode === 'clock';
+    const isCountdown = t.mode === 'countdown';
+    const isRunning = t.running;
+
+    el.modeBtns.forEach((btn) => {
+      const active = btn.dataset.mode === t.mode;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', String(active));
+    });
+
+    el.countdownSetup.classList.toggle('hidden', !isCountdown || isRunning);
+    el.countdownProgressWrap.classList.toggle('hidden', !isCountdown);
+    if (el.timerControls) el.timerControls.classList.toggle('hidden', isClock);
+    el.lapBtn.classList.toggle('hidden', isCountdown || isClock);
+    el.addMinBtn.classList.toggle('hidden', !isCountdown);
+
+    if (isClock && window.OdakWorld) {
+      const now = new Date();
+      const c = state.clock;
+      const tp = window.OdakWorld.getTimePartsForZone(now, c.primaryZone, {
+        hour12: !c.hour24,
+        showSeconds: c.showSeconds !== false,
+      });
+
+      el.timerDisplay.textContent = tp.main;
+      el.timerMs.classList.add('hidden');
+      if (el.timerAmpm) {
+        el.timerAmpm.textContent = tp.suffix.trim();
+        el.timerAmpm.classList.toggle('hidden', !tp.suffix.trim());
+      }
+      if (el.analogSubreadout) {
+        el.analogSubreadout.textContent = `${tp.main}${tp.suffix}`;
+      }
+      if (el.handSecond && el.handMinute && el.handHour) {
+        const msFrac = now.getMilliseconds() / 1000;
+        const secDeg = ((tp.seconds + msFrac) % 60) * 6;
+        const minDeg = ((tp.minutes + tp.seconds / 60) % 60) * 6;
+        const hourDeg = ((tp.hours % 12) + tp.minutes / 60) * 30;
+        el.handSecond.style.transform = `rotate(${secDeg}deg)`;
+        el.handMinute.style.transform = `rotate(${minDeg}deg)`;
+        el.handHour.style.transform = `rotate(${hourDeg}deg)`;
+      }
+
+      if (el.clockMetaRow) {
+        const showZoneBadge = (c.primaryZone && c.primaryZone !== 'auto') || c.dualEnabled;
+        el.clockMetaRow.classList.toggle('hidden', !c.showDate && !showZoneBadge);
+        if (el.clockDateText) {
+          el.clockDateText.textContent = c.showDate
+            ? window.OdakWorld.formatDateForZone(now, c.primaryZone, state.language, c.dateFormat)
+            : '';
+          el.clockDateText.classList.toggle('hidden', !c.showDate);
+        }
+        if (el.clockZoneBadge) {
+          el.clockZoneBadge.textContent = window.OdakWorld.getZoneShortName(c.primaryZone);
+          el.clockZoneBadge.classList.toggle('hidden', !showZoneBadge);
+        }
+      }
+
+      if (el.dualClockWrap) {
+        el.dualClockWrap.classList.toggle('hidden', !c.dualEnabled);
+        if (c.dualEnabled) {
+          const secZone = c.secondaryZone || 'America/New_York';
+          const sp = window.OdakWorld.getTimePartsForZone(now, secZone, {
+            hour12: !c.hour24,
+            showSeconds: c.showSeconds !== false,
+          });
+          if (el.dualZoneName) el.dualZoneName.textContent = window.OdakWorld.getZoneShortName(secZone);
+          if (el.dualZoneTime) el.dualZoneTime.textContent = `${sp.main}${sp.suffix}`;
+          if (el.dualZoneDate) {
+            el.dualZoneDate.textContent = c.showDate
+              ? window.OdakWorld.formatDateForZone(now, secZone, state.language, 'compact')
+              : '';
+          }
+        }
+      }
+
+      document.title = `${tp.main}${tp.suffix} — ${tr('pageTitleRunning')}`;
+      renderLaps();
+      return;
+    }
+
+    // Stopwatch / Countdown display
+    el.timerMs.classList.toggle('hidden', !state.design.showMs);
+    if (el.timerAmpm) el.timerAmpm.classList.add('hidden');
+    if (el.clockMetaRow) el.clockMetaRow.classList.add('hidden');
+    if (el.dualClockWrap) el.dualClockWrap.classList.add('hidden');
+
     const parts = window.OdakTimer.formatTimeParts(currentMs);
     el.timerDisplay.textContent = parts.main;
     el.timerMs.textContent = parts.ms;
@@ -705,20 +899,7 @@
       el.handHour.style.transform = `rotate(${hourDeg}deg)`;
     }
 
-    const isRunning = t.running;
     el.startPauseLabel.textContent = isRunning ? tr('pause') : tr('start');
-
-    const isCountdown = t.mode === 'countdown';
-    el.modeBtns.forEach((btn) => {
-      const active = btn.dataset.mode === t.mode;
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-selected', String(active));
-    });
-
-    el.countdownSetup.classList.toggle('hidden', !isCountdown || isRunning);
-    el.countdownProgressWrap.classList.toggle('hidden', !isCountdown);
-    el.lapBtn.classList.toggle('hidden', isCountdown);
-    el.addMinBtn.classList.toggle('hidden', !isCountdown);
 
     if (isCountdown && t.countdownDurationMs > 0) {
       const pct = Math.max(0, Math.min(100, (currentMs / t.countdownDurationMs) * 100));
@@ -970,6 +1151,7 @@
       btn.addEventListener('click', () => {
         window.OdakAudio.playClick(700);
         timerEngine.setMode(btn.dataset.mode);
+        syncClockLoop();
         renderTimerUI(timerEngine.getCurrentMs());
       });
     });
@@ -1204,6 +1386,115 @@
       applyDesign();
       resetIdleTimer();
     });
+    el.toggleKeepAwake?.addEventListener('change', async (e) => {
+      state.design.keepAwake = e.target.checked;
+      persist();
+      const ok = await syncWakeLock(true);
+      if (!ok && state.design.keepAwake) {
+        state.design.keepAwake = false;
+        e.target.checked = false;
+        persist();
+      }
+    });
+
+    // Clock & World Time Controls
+    el.selectPrimaryZone?.addEventListener('change', (e) => {
+      state.clock.primaryZone = e.target.value;
+      persist();
+      renderTimerUI(timerEngine.getCurrentMs());
+    });
+    el.toggleDualZone?.addEventListener('change', (e) => {
+      state.clock.dualEnabled = e.target.checked;
+      persist();
+      applyDesign();
+      renderTimerUI(timerEngine.getCurrentMs());
+    });
+    el.selectSecondaryZone?.addEventListener('change', (e) => {
+      state.clock.secondaryZone = e.target.value;
+      persist();
+      renderTimerUI(timerEngine.getCurrentMs());
+    });
+    el.toggleShowDate?.addEventListener('change', (e) => {
+      state.clock.showDate = e.target.checked;
+      persist();
+      applyDesign();
+      renderTimerUI(timerEngine.getCurrentMs());
+    });
+    el.selectDateFormat?.addEventListener('change', (e) => {
+      state.clock.dateFormat = e.target.value;
+      persist();
+      renderTimerUI(timerEngine.getCurrentMs());
+    });
+    el.toggleHour24?.addEventListener('change', (e) => {
+      state.clock.hour24 = e.target.checked;
+      persist();
+      renderTimerUI(timerEngine.getCurrentMs());
+    });
+    el.toggleClockSeconds?.addEventListener('change', (e) => {
+      state.clock.showSeconds = e.target.checked;
+      persist();
+      renderTimerUI(timerEngine.getCurrentMs());
+    });
+
+    // Weather Controls
+    el.toggleWeather?.addEventListener('change', (e) => {
+      state.weather.enabled = e.target.checked;
+      persist();
+      applyDesign();
+      if (state.weather.enabled) refreshWeather(false);
+      else renderWeatherPill();
+    });
+    el.btnApplyWeather?.addEventListener('click', () => {
+      state.weather.city = el.inputWeatherCity.value.trim();
+      persist();
+      refreshWeather(true);
+    });
+    el.inputWeatherCity?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        el.btnApplyWeather?.click();
+      }
+    });
+    el.btnLocateWeather?.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        showToast(tr('weatherError'));
+        return;
+      }
+      if (el.weatherPill && el.weatherDesc) {
+        el.weatherPill.classList.remove('hidden');
+        el.weatherDesc.textContent = tr('weatherLoading');
+      }
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            const data = await window.OdakWorld.fetchWeatherByCoords(
+              pos.coords.latitude,
+              pos.coords.longitude,
+              ''
+            );
+            state.weather.cached = data;
+            state.weather.city = data.city || '';
+            if (el.inputWeatherCity) el.inputWeatherCity.value = state.weather.city;
+            persist();
+            renderWeatherPill();
+          } catch (_) {
+            showToast(tr('weatherError'));
+          }
+        },
+        () => showToast(tr('weatherError'))
+      );
+    });
+    el.selectWeatherUnit?.addEventListener('change', (e) => {
+      state.weather.unit = e.target.value;
+      persist();
+      renderWeatherPill();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state.design.keepAwake) {
+        syncWakeLock(false);
+      }
+    });
 
     el.btnResetDesign.addEventListener('click', () => {
       state.design = structuredClone(DEFAULT_STATE.design);
@@ -1358,12 +1649,14 @@
       }
 
       if (e.code === 'Space') {
-        e.preventDefault();
-        el.startPauseBtn.click();
+        if (state.timer.mode !== 'clock') {
+          e.preventDefault();
+          el.startPauseBtn.click();
+        }
       } else if (e.key === 'l' || e.key === 'L') {
         if (state.timer.mode === 'stopwatch') el.lapBtn.click();
       } else if (e.key === 'r' || e.key === 'R') {
-        el.resetBtn.click();
+        if (state.timer.mode !== 'clock') el.resetBtn.click();
       } else if (e.key === 'f' || e.key === 'F') {
         toggleFullscreen();
       } else if (e.key === 'm' || e.key === 'M') {
@@ -1471,6 +1764,74 @@
     }
   }
 
+  async function syncWakeLock(showFeedback = false) {
+    if (!state.design.keepAwake) {
+      if (wakeLockSentinel) {
+        try {
+          await wakeLockSentinel.release();
+        } catch (_) {}
+        wakeLockSentinel = null;
+      }
+      if (showFeedback) showToast(tr('toastWakeOff'));
+      return true;
+    }
+    if (!('wakeLock' in navigator)) {
+      if (showFeedback) showToast(tr('toastWakeUnsupported'));
+      return false;
+    }
+    try {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      if (showFeedback) showToast(tr('toastWakeOn'));
+      return true;
+    } catch (_) {
+      if (showFeedback) showToast(tr('toastWakeUnsupported'));
+      return false;
+    }
+  }
+
+  function renderWeatherPill() {
+    if (!el.weatherPill) return;
+    const w = state.weather;
+    if (!w.enabled || !window.OdakWorld) {
+      el.weatherPill.classList.add('hidden');
+      return;
+    }
+    el.weatherPill.classList.remove('hidden');
+    const c = w.cached;
+    if (!c) {
+      if (el.weatherTemp) el.weatherTemp.textContent = '--°';
+      if (el.weatherDesc) el.weatherDesc.textContent = tr('weatherLoading');
+      if (el.weatherCity) el.weatherCity.textContent = '';
+      if (el.weatherIcon) el.weatherIcon.innerHTML = window.OdakWorld.getWeatherSvg('cloud');
+      return;
+    }
+    const isF = w.unit === 'f';
+    const tempVal = isF ? Math.round((c.tempC * 9) / 5 + 32) : c.tempC;
+    if (el.weatherTemp) el.weatherTemp.textContent = `${tempVal}°${isF ? 'F' : 'C'}`;
+    if (el.weatherDesc) el.weatherDesc.textContent = tr(c.codeKey);
+    if (el.weatherCity) el.weatherCity.textContent = c.city ? `· ${c.city}` : '';
+    if (el.weatherIcon) el.weatherIcon.innerHTML = window.OdakWorld.getWeatherSvg(c.icon);
+  }
+
+  async function refreshWeather(force = false) {
+    if (!state.weather.enabled || !window.OdakWorld) return;
+    const cached = state.weather.cached;
+    const fresh = cached && Date.now() - cached.fetchedAt < 15 * 60 * 1000;
+    if (!force && fresh) {
+      renderWeatherPill();
+      return;
+    }
+    renderWeatherPill();
+    try {
+      const data = await window.OdakWorld.fetchWeatherByCity(state.weather.city);
+      state.weather.cached = data;
+      persist();
+      renderWeatherPill();
+    } catch (_) {
+      if (el.weatherDesc) el.weatherDesc.textContent = tr('weatherError');
+    }
+  }
+
   async function init() {
     initAnalogClockTicks();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
@@ -1492,6 +1853,9 @@
     applyDesign();
     applyAudio();
     applyLanguage();
+    syncClockLoop();
+    if (state.design.keepAwake) syncWakeLock(false);
+    if (state.weather.enabled) refreshWeather(false);
     window.OdakMusic.player.onStateChange = syncMusicUI;
     window.OdakMusic.player.setLoop(state.music.loop);
     const activeMusic = state.music.items.find((x) => x.id === state.music.activeId) || state.music.items[0];

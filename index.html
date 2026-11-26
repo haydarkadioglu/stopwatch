@@ -18,7 +18,7 @@
     href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="styles.css?v=13" />
+  <link rel="stylesheet" href="styles.css?v=14" />
 </head>
 <body class="font-outfit card-glass">
   <!-- Background Layers -->
@@ -161,6 +161,16 @@
           >
             Geri Sayım
           </button>
+          <button
+            id="tab-clock"
+            class="mode-btn"
+            role="tab"
+            aria-selected="false"
+            data-mode="clock"
+            data-i18n="clockMode"
+          >
+            Saat
+          </button>
         </div>
 
         <!-- Countdown Presets & Custom Input (shown in countdown mode) -->
@@ -196,6 +206,7 @@
           <div id="digital-clock-wrap" class="digital-clock-wrap">
             <div id="timer-display" class="timer-display" aria-live="off">00:00:00</div>
             <div id="timer-ms" class="timer-ms hidden">.00</div>
+            <div id="timer-ampm" class="timer-ampm hidden"></div>
           </div>
           <div id="analog-clock-wrap" class="analog-clock-wrap hidden">
             <svg class="analog-clock-svg" viewBox="0 0 240 240" aria-hidden="true">
@@ -210,13 +221,37 @@
           </div>
         </div>
 
+        <!-- World Clock Date & Zone Subtitle -->
+        <div id="clock-meta-row" class="clock-meta-row hidden">
+          <span id="clock-date-text" class="clock-date-text"></span>
+          <span id="clock-zone-badge" class="clock-zone-badge hidden"></span>
+        </div>
+
+        <!-- Optional Dual Time Zone Card -->
+        <div id="dual-clock-wrap" class="dual-clock-wrap hidden">
+          <div class="dual-zone-info">
+            <span id="dual-zone-name" class="dual-zone-name">Tokyo</span>
+            <span id="dual-zone-date" class="dual-zone-date"></span>
+          </div>
+          <div id="dual-zone-time" class="dual-zone-time">00:00</div>
+        </div>
+
+        <!-- Optional Weather Pill -->
+        <div id="weather-pill" class="weather-pill hidden">
+          <span id="weather-icon" class="weather-icon" aria-hidden="true"></span>
+          <span id="weather-temp" class="weather-temp">--°C</span>
+          <span class="weather-sep">·</span>
+          <span id="weather-desc" class="weather-desc"></span>
+          <span id="weather-city" class="weather-city"></span>
+        </div>
+
         <!-- Progress Bar (for Countdown) -->
         <div id="countdown-progress-wrap" class="countdown-progress-wrap hidden">
           <div id="countdown-progress-bar" class="countdown-progress-bar"></div>
         </div>
 
         <!-- Primary Controls -->
-        <div class="timer-controls fade-on-idle">
+        <div id="timer-controls" class="timer-controls fade-on-idle">
           <button id="btn-start-pause" class="ctrl-btn primary-btn">
             <span id="start-pause-label">Başlat</span>
           </button>
@@ -524,6 +559,104 @@
               <span class="slider"></span>
             </label>
           </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-title" data-i18n="keepAwakeTitle">Ekranı Açık Tut</div>
+              <div class="toggle-desc" data-i18n="keepAwakeDesc">Hareket olmasa da ekranın kapanmasını engelle</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-keep-awake" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Clock & World Time Settings -->
+        <div class="control-group">
+          <span class="section-label" data-i18n="clockSettingsTitle">Saat &amp; Dünya Saatleri</span>
+        </div>
+        <div class="control-group">
+          <label for="select-primary-zone" class="helper-inline" data-i18n="primaryZone">Ana Saat Dilimi</label>
+          <select id="select-primary-zone" class="full-select"></select>
+        </div>
+        <div class="control-group toggles-list">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-title" data-i18n="dualZoneTitle">İkinci Saat Dilimi</div>
+              <div class="toggle-desc" data-i18n="dualZoneDesc">İki farklı bölgeyi aynı anda göster</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-dual-zone" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <div id="secondary-zone-wrap" class="control-group hidden">
+          <label for="select-secondary-zone" class="helper-inline" data-i18n="secondaryZone">İkinci Bölge</label>
+          <select id="select-secondary-zone" class="full-select"></select>
+        </div>
+        <div class="control-group toggles-list">
+          <div class="toggle-row">
+            <span data-i18n="showDate">Tarihi Göster</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-show-date" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="sub-control" id="date-format-wrap">
+            <label for="select-date-format" data-i18n="dateFormat">Tarih Biçimi</label>
+            <select id="select-date-format">
+              <option value="long" data-i18n="dateFmtLong">Uzun</option>
+              <option value="compact" data-i18n="dateFmtCompact">Sade</option>
+              <option value="short" data-i18n="dateFmtShort">Kısa</option>
+            </select>
+          </div>
+          <div class="toggle-row">
+            <span data-i18n="hourFormat24">24 Saat Biçimi</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-hour-24" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <span data-i18n="showSeconds">Saniyeyi Göster</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-clock-seconds" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Weather Settings -->
+        <div class="control-group">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-title" data-i18n="weatherTitle">Hava Durumunu Göster</div>
+              <div class="toggle-desc" data-i18n="weatherDesc">Saat ve çalışma ekranında hava bilgisi</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-weather" />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="weather-setup-wrap" class="control-group hidden">
+            <div class="url-add-row">
+              <input type="text" id="input-weather-city" placeholder="Şehir yaz (örn. İstanbul, Berlin...)" data-i18n-placeholder="weatherCityPlaceholder" />
+              <button id="btn-apply-weather" class="small-btn" data-i18n="apply">Ayarla</button>
+              <button id="btn-locate-weather" class="small-btn" data-i18n="weatherLocate">Konum</button>
+            </div>
+            <div class="sub-control">
+              <label for="select-weather-unit" data-i18n="weatherUnit">Birim</label>
+              <select id="select-weather-unit">
+                <option value="c">°C</option>
+                <option value="f">°F</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div class="divider"></div>
@@ -755,12 +888,13 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <!-- Scripts (ordered so file:// and http:// both work seamlessly) -->
-  <script src="js/db.js?v=13"></script>
-  <script src="js/i18n.js?v=12"></script>
-  <script src="js/audio.js?v=13"></script>
-  <script src="js/music.js?v=13"></script>
-  <script src="js/backgrounds.js?v=13"></script>
-  <script src="js/timer.js?v=13"></script>
-  <script src="js/app.js?v=13"></script>
+  <script src="js/db.js?v=14"></script>
+  <script src="js/i18n.js?v=14"></script>
+  <script src="js/audio.js?v=14"></script>
+  <script src="js/music.js?v=14"></script>
+  <script src="js/world.js?v=14"></script>
+  <script src="js/backgrounds.js?v=14"></script>
+  <script src="js/timer.js?v=14"></script>
+  <script src="js/app.js?v=14"></script>
 </body>
 </html>
