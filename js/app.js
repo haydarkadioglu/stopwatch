@@ -78,6 +78,7 @@
   let slideshowTimer = null;
   let idleTimer = null;
   let toastTimer = null;
+  let alarmRepeatTimer = null;
   let deferredInstallPrompt = null;
 
   // DOM Elements
@@ -197,6 +198,9 @@
     inputMusicUrl: document.getElementById('input-music-url'),
     btnAddMusic: document.getElementById('btn-add-music'),
     musicList: document.getElementById('music-list'),
+    timeupBanner: document.getElementById('timeup-banner'),
+    btnDismissTimeup: document.getElementById('btn-dismiss-timeup'),
+    btnRestartTimeup: document.getElementById('btn-restart-timeup'),
     toast: document.getElementById('toast'),
   };
 
@@ -725,6 +729,9 @@
   function bindEvents() {
     el.startPauseBtn.addEventListener('click', () => {
       window.OdakAudio.playClick(640);
+      if (state.timer.mode === 'countdown' && 'Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().catch(() => {});
+      }
       timerEngine.toggle();
       renderTimerUI(timerEngine.getCurrentMs());
     });
@@ -1152,6 +1159,14 @@
       if (el.btnInstall) el.btnInstall.classList.add('hidden');
     });
 
+    el.btnDismissTimeup?.addEventListener('click', dismissTimeUp);
+    el.btnRestartTimeup?.addEventListener('click', () => {
+      dismissTimeUp();
+      timerEngine.reset();
+      timerEngine.start();
+      renderTimerUI(timerEngine.getCurrentMs());
+    });
+
     el.btnInstall?.addEventListener('click', async () => {
       if (!deferredInstallPrompt) return;
       deferredInstallPrompt.prompt();
@@ -1180,6 +1195,42 @@
     }
   }
 
+  function dismissTimeUp() {
+    clearInterval(alarmRepeatTimer);
+    alarmRepeatTimer = null;
+    el.timeupBanner?.classList.add('hidden');
+    document.title = tr('pageTitle');
+  }
+
+  function showTimeUpAlert() {
+    window.OdakAudio.playAlarm();
+    let repeats = 0;
+    clearInterval(alarmRepeatTimer);
+    alarmRepeatTimer = setInterval(() => {
+      repeats += 1;
+      if (repeats >= 3) {
+        clearInterval(alarmRepeatTimer);
+        return;
+      }
+      window.OdakAudio.playAlarm();
+    }, 3500);
+
+    el.timeupBanner?.classList.remove('hidden');
+    document.title = `⏰ ${tr('timeUpTitle')} — ${tr('pageTitleRunning')}`;
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        const body = state.studyTask
+          ? `${state.studyTask} — ${tr('toastTimeUp')}`
+          : tr('toastTimeUp');
+        new Notification(tr('timeUpTitle'), {
+          body,
+          icon: 'assets/icon-192.png',
+        });
+      } catch (_) {}
+    }
+  }
+
   async function init() {
     initAnalogClockTicks();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
@@ -1193,9 +1244,8 @@
       persist,
       (currentMs) => renderTimerUI(currentMs),
       () => {
-        window.OdakAudio.playAlarm();
         renderTimerUI(0);
-        showToast(tr('toastTimeUp'));
+        showTimeUpAlert();
       }
     );
 

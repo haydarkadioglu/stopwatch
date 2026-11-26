@@ -139,6 +139,9 @@
       toastUrlAdded: 'URL arka plana eklendi',
       toastDesignReset: 'Tasarım varsayılana döndürüldü',
       toastTimeUp: 'Süre doldu! Harika odaklandın.',
+      timeUpTitle: 'Süre Doldu!',
+      timeUpDismiss: 'Tamam',
+      timeUpRestart: 'Tekrar Başlat',
       quotes: [
         '“Küçük adımlar, büyük sonuçların sessiz mimarıdır.”',
         '“Odaklandığın şey büyür; dikkatini koru.”',
@@ -273,6 +276,9 @@
       toastUrlAdded: 'URL added to backgrounds',
       toastDesignReset: 'Design reset to default',
       toastTimeUp: 'Time is up! Great focus session.',
+      timeUpTitle: "Time's Up!",
+      timeUpDismiss: 'OK',
+      timeUpRestart: 'Restart',
       quotes: [
         '“Small steps are the quiet architects of big results.”',
         '“What you focus on grows; guard your attention.”',
@@ -407,6 +413,9 @@
       toastUrlAdded: 'URL zu Hintergründen hinzugefügt',
       toastDesignReset: 'Design auf Standard zurückgesetzt',
       toastTimeUp: 'Zeit abgelaufen! Tolle Lerneinheit.',
+      timeUpTitle: 'Zeit abgelaufen!',
+      timeUpDismiss: 'OK',
+      timeUpRestart: 'Neu starten',
       quotes: [
         '„Kleine Schritte sind die leisen Architekten großer Erfolge.“',
         '„Worauf du dich fokussierst, das wächst.“',
@@ -541,6 +550,9 @@
       toastUrlAdded: 'URL añadida a los fondos',
       toastDesignReset: 'Diseño restablecido',
       toastTimeUp: '¡Tiempo cumplido! Gran sesión de estudio.',
+      timeUpTitle: '¡Tiempo cumplido!',
+      timeUpDismiss: 'Aceptar',
+      timeUpRestart: 'Reiniciar',
       quotes: [
         '“Los pequeños pasos son los arquitectos silenciosos de grandes resultados.”',
         '“Lo que enfocas crece; protege tu atención.”',
@@ -675,6 +687,9 @@
       toastUrlAdded: 'URL добавлен в галерею',
       toastDesignReset: 'Дизайн сброшен по умолчанию',
       toastTimeUp: 'Время вышло! Отличная сессия.',
+      timeUpTitle: 'Время вышло!',
+      timeUpDismiss: 'ОК',
+      timeUpRestart: 'Повторить',
       quotes: [
         '«Маленькие шаги — тихие архитекторы больших результатов.»',
         '«То, на чём вы фокусируетесь, растёт.»',
@@ -809,6 +824,9 @@
       toastUrlAdded: 'تمت إضافة الرابط إلى الخلفيات',
       toastDesignReset: 'تمت إعادة التصميم للافتراضي',
       toastTimeUp: 'انتهى الوقت! جلسة دراسة رائعة.',
+      timeUpTitle: 'انتهى الوقت!',
+      timeUpDismiss: 'حسناً',
+      timeUpRestart: 'إعادة البدء',
       quotes: [
         '«الخطوات الصغيرة هي المهندس الصامت للنتائج الكبيرة.»',
         '«ما تركز عليه ينمو؛ حافظ على انتباهك.»',
@@ -943,6 +961,9 @@
       toastUrlAdded: 'URLを背景に追加しました',
       toastDesignReset: 'デザインを初期化しました',
       toastTimeUp: '時間になりました！お疲れさまでした。',
+      timeUpTitle: '時間になりました！',
+      timeUpDismiss: 'OK',
+      timeUpRestart: 'もう一度',
       quotes: [
         '「小さな一歩が、大きな成果を静かに築き上げる。」',
         '「意識を向けたものが育つ。集中を守ろう。」',
@@ -1077,6 +1098,9 @@
       toastUrlAdded: 'URL이 배경에 추가되었습니다',
       toastDesignReset: '디자인이 초기화되었습니다',
       toastTimeUp: '시간이 종료되었습니다! 훌륭한 집중이었어요.',
+      timeUpTitle: '시간 종료!',
+      timeUpDismiss: '확인',
+      timeUpRestart: '다시 시작',
       quotes: [
         '“작은 발걸음이 큰 결과를 조용히 만들어 냅니다.”',
         '“집중하는 것이 자랍니다. 시선을 지켜내세요.”',
@@ -1211,6 +1235,9 @@
       toastUrlAdded: '已添加链接到背景图库',
       toastDesignReset: '设计已恢复默认',
       toastTimeUp: '时间到！专注得非常棒。',
+      timeUpTitle: '时间到！',
+      timeUpDismiss: '确定',
+      timeUpRestart: '重新开始',
       quotes: [
         '“微小的积累，是宏大成果背后沉默的建筑师。”',
         '“你专注的地方会不断生长；守护你的注意力。”',
