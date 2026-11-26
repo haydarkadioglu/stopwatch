@@ -67,6 +67,7 @@
       this.playlistIds = [];
       this.playlistIndex = -1;
       this.metaCache = new Map();
+      this.unavailableIds = new Set();
       this.consecutiveErrors = 0;
       this.onStateChange = null;
     }
@@ -188,11 +189,17 @@
             },
             onError: () => {
               this.consecutiveErrors += 1;
+              const idx = this.player?.getPlaylistIndex?.();
+              const failedId =
+                (typeof idx === 'number' && idx >= 0 && this.playlistIds[idx]) ||
+                this.currentVideoId;
+              if (failedId) this.unavailableIds.add(failedId);
               if (this.activeItem?.kind === 'playlist' && this.consecutiveErrors <= 12) {
                 setTimeout(() => {
                   this.player?.nextVideo?.();
                 }, 250);
               }
+              this.onStateChange?.();
             },
           },
         });
@@ -237,14 +244,17 @@
         if (Array.isArray(list) && list.length > 0) {
           this.playlistIds = list;
           this.playlistIndex = this.player?.getPlaylistIndex?.() ?? 0;
-          // Prefetch prev 1 and next 3 metadata
-          const neighbors = [
+          // Prefetch neighbors and initial visible tracks for list details
+          const toPrefetch = new Set([
             this.playlistIndex - 1,
             this.playlistIndex + 1,
             this.playlistIndex + 2,
             this.playlistIndex + 3,
-          ];
-          neighbors.forEach((idx) => {
+          ]);
+          for (let i = 0; i < Math.min(12, list.length); i++) {
+            toPrefetch.add(i);
+          }
+          toPrefetch.forEach((idx) => {
             if (idx >= 0 && idx < list.length) {
               this.fetchVideoMeta(list[idx]);
             }
@@ -255,6 +265,21 @@
         }
         this.onStateChange?.();
       } catch (_) {}
+    }
+
+    getPlaylistTracks(limit = 30) {
+      if (!this.playlistIds.length) return [];
+      return this.playlistIds.slice(0, limit).map((vid, index) => {
+        const cached = this.metaCache.get(vid);
+        return {
+          index,
+          videoId: vid,
+          title: cached?.title || vid,
+          thumb: cached?.thumb || `https://img.youtube.com/vi/${vid}/default.jpg`,
+          current: index === this.playlistIndex,
+          unavailable: this.unavailableIds.has(vid),
+        };
+      });
     }
 
     getQueuePreview() {

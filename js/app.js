@@ -82,6 +82,7 @@
   let toastTimer = null;
   let alarmRepeatTimer = null;
   let deferredInstallPrompt = null;
+  let expandedMusicId = null;
 
   // DOM Elements
   const el = {
@@ -203,11 +204,19 @@
     drawerMusicPlay: document.getElementById('drawer-music-play'),
     drawerMusicNext: document.getElementById('drawer-music-next'),
     drawerMusicLoop: document.getElementById('drawer-music-loop'),
-    toggleMusicEnabled: document.getElementById('toggle-music-enabled'),
+    npCover: document.getElementById('np-cover'),
+    npCoverPh: document.getElementById('np-cover-ph'),
+    npTitle: document.getElementById('np-title'),
+    npAuthor: document.getElementById('np-author'),
+    npSource: document.getElementById('np-source'),
+    npMute: document.getElementById('np-mute'),
+    npIconVol: document.getElementById('np-icon-vol'),
+    npIconMuted: document.getElementById('np-icon-muted'),
     sliderMusicVolume: document.getElementById('slider-music-volume'),
     valMusicVolume: document.getElementById('val-music-volume'),
     inputMusicUrl: document.getElementById('input-music-url'),
     btnAddMusic: document.getElementById('btn-add-music'),
+    musicListCount: document.getElementById('music-list-count'),
     musicList: document.getElementById('music-list'),
     timeupBanner: document.getElementById('timeup-banner'),
     btnDismissTimeup: document.getElementById('btn-dismiss-timeup'),
@@ -436,10 +445,44 @@
       el.mwIconVol.classList.toggle('hidden', !musicAudible);
       el.mwIconMuted.classList.toggle('hidden', musicAudible);
     }
+    if (el.npMute) el.npMute.classList.toggle('active', musicAudible);
+    if (el.npIconVol && el.npIconMuted) {
+      el.npIconVol.classList.toggle('hidden', !musicAudible);
+      el.npIconMuted.classList.toggle('hidden', musicAudible);
+    }
+
+    // Now Playing Card in Music Tab
+    const activeTitle = activeItem?.id === 'music-sample-1' ? tr('musicSampleTitle') : activeItem?.title;
+    if (el.npTitle) {
+      el.npTitle.textContent = p.currentTitle || activeTitle || tr('nothingPlaying');
+    }
+    if (el.npAuthor) {
+      el.npAuthor.textContent = p.currentAuthor || '';
+      el.npAuthor.classList.toggle('hidden', !p.currentAuthor);
+    }
+    if (el.npSource) {
+      const parts = [];
+      if (activeTitle) parts.push(activeTitle);
+      if (p.playlistLength > 0 && p.playlistIndex >= 0) {
+        parts.push(`${p.playlistIndex + 1} / ${p.playlistLength}`);
+      }
+      el.npSource.textContent = parts.join(' · ');
+      el.npSource.classList.toggle('hidden', parts.length === 0);
+    }
+    if (el.npCover && el.npCoverPh) {
+      const vidId = p.currentVideoId || activeItem?.videoId;
+      if (vidId) {
+        el.npCover.src = `https://img.youtube.com/vi/${vidId}/hqdefault.jpg`;
+        el.npCover.classList.remove('hidden');
+        el.npCoverPh.classList.add('hidden');
+      } else {
+        el.npCover.classList.add('hidden');
+        el.npCoverPh.classList.remove('hidden');
+      }
+    }
 
     if (el.toggleMusicWidget) el.toggleMusicWidget.checked = m.showWidget;
     if (el.toggleMusicKeys) el.toggleMusicKeys.checked = m.shortcutsEnabled !== false;
-    if (el.toggleMusicEnabled) el.toggleMusicEnabled.checked = m.enabled;
     if (el.sliderMusicVolume) el.sliderMusicVolume.value = m.volume;
     if (el.valMusicVolume) el.valMusicVolume.textContent = `${m.volume}%`;
     if (el.mwVolSlider) el.mwVolSlider.value = m.volume;
@@ -450,6 +493,7 @@
     if (el.valMusicScale) el.valMusicScale.textContent = `${scale}%`;
 
     renderMusicQueue();
+    renderMusicList();
   }
 
   function renderMusicQueue() {
@@ -488,45 +532,159 @@
 
   function renderMusicList() {
     if (!el.musicList) return;
+    if (el.musicListCount) {
+      el.musicListCount.textContent = String(state.music.items.length);
+    }
+    const activeInput = el.musicList.querySelector('.ml-rename:focus');
+    if (activeInput) return; // Keep focus intact while user types a new list name
+
+    const prevTracksScroll = el.musicList.querySelector('.ml-tracks')?.scrollTop || 0;
     el.musicList.innerHTML = '';
+    const p = window.OdakMusic.player;
+
     state.music.items.forEach((item) => {
-      const row = document.createElement('div');
-      row.className = 'music-item' + (item.id === state.music.activeId ? ' active' : '');
+      const isPlayingItem = item.id === state.music.activeId;
+      const isExpanded = item.id === expandedMusicId;
+
+      const card = document.createElement('div');
+      card.className =
+        'ml-item' +
+        (isPlayingItem ? ' active' : '') +
+        (isExpanded ? ' expanded' : '');
+
       const typeLabel = item.kind === 'playlist' ? tr('musicTypePlaylist') : tr('musicTypeSingle');
       const itemTitle = item.id === 'music-sample-1' ? tr('musicSampleTitle') : item.title;
-      row.innerHTML = `
-        <div class="music-item-meta">
-          <div class="music-item-title">${itemTitle}</div>
-          <div class="music-item-sub">${typeLabel}</div>
+      const trackCountText =
+        isPlayingItem && item.kind === 'playlist' && p.playlistIds.length > 0
+          ? ` · ${tr('mlTrackCount', { n: p.playlistIds.length })}`
+          : '';
+
+      const header = document.createElement('div');
+      header.className = 'ml-header';
+      header.innerHTML = `
+        <div class="ml-meta">
+          <div class="ml-title-row">
+            <span class="ml-title"></span>
+            ${isPlayingItem ? `<span class="ml-playing-pill">${tr('mlNowPlayingBadge')}</span>` : ''}
+          </div>
+          <div class="ml-sub">${typeLabel}${trackCountText}</div>
         </div>
-        <button class="music-item-del" title="×">&times;</button>
+        <svg class="ml-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
       `;
+      header.querySelector('.ml-title').textContent = itemTitle;
+      header.addEventListener('click', () => {
+        expandedMusicId = expandedMusicId === item.id ? null : item.id;
+        renderMusicList();
+      });
+      card.appendChild(header);
 
-      row.querySelector('.music-item-del').addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.music.items = state.music.items.filter((x) => x.id !== item.id);
-        if (state.music.activeId === item.id) {
-          state.music.activeId = state.music.items[0]?.id || null;
-          if (state.music.activeId) {
-            window.OdakMusic.player.load(state.music.items[0], false);
+      if (isExpanded) {
+        const details = document.createElement('div');
+        details.className = 'ml-details';
+
+        const renameInput = document.createElement('input');
+        renameInput.type = 'text';
+        renameInput.className = 'ml-rename';
+        renameInput.value = itemTitle;
+        renameInput.placeholder = tr('mlRenamePlaceholder');
+        renameInput.addEventListener('input', (e) => {
+          if (item.id === 'music-sample-1') item.id = 'music-custom-' + Date.now();
+          if (state.music.activeId === 'music-sample-1' && isPlayingItem) {
+            state.music.activeId = item.id;
+            expandedMusicId = item.id;
           }
+          item.title = e.target.value;
+          header.querySelector('.ml-title').textContent = item.title || tr('mlRenamePlaceholder');
+          persist();
+        });
+        details.appendChild(renameInput);
+
+        const actions = document.createElement('div');
+        actions.className = 'ml-actions';
+
+        const playBtn = document.createElement('button');
+        playBtn.className = 'small-btn accent-small-btn';
+        playBtn.textContent = tr('mlPlay');
+        playBtn.addEventListener('click', () => {
+          state.music.activeId = item.id;
+          window.OdakMusic.player.currentTitle = '';
+          window.OdakMusic.player.currentAuthor = '';
+          window.OdakMusic.player.load(item, true);
+          persist();
+          renderMusicList();
+          syncMusicUI();
+        });
+
+        const ytLink = document.createElement('a');
+        ytLink.className = 'small-btn';
+        ytLink.href = item.url;
+        ytLink.target = '_blank';
+        ytLink.rel = 'noopener noreferrer';
+        ytLink.textContent = tr('mlOpenYT');
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'small-btn ml-del-btn';
+        delBtn.textContent = tr('mlDelete');
+        delBtn.addEventListener('click', () => {
+          state.music.items = state.music.items.filter((x) => x.id !== item.id);
+          if (expandedMusicId === item.id) expandedMusicId = null;
+          if (state.music.activeId === item.id) {
+            state.music.activeId = state.music.items[0]?.id || null;
+            if (state.music.activeId) {
+              window.OdakMusic.player.load(state.music.items[0], false);
+            }
+          }
+          persist();
+          renderMusicList();
+          syncMusicUI();
+        });
+
+        actions.appendChild(playBtn);
+        actions.appendChild(ytLink);
+        actions.appendChild(delBtn);
+        details.appendChild(actions);
+
+        if (isPlayingItem && item.kind === 'playlist' && p.playlistIds.length > 0) {
+          const tracksEl = document.createElement('div');
+          tracksEl.className = 'ml-tracks';
+          p.getPlaylistTracks(30).forEach((t) => {
+            const trow = document.createElement('div');
+            trow.className =
+              'ml-track-row' +
+              (t.current ? ' current' : '') +
+              (t.unavailable ? ' unavailable' : '');
+            trow.innerHTML = `
+              <span class="ml-track-idx">${t.index + 1}</span>
+              <img class="ml-track-thumb" src="${t.thumb}" alt="" loading="lazy" />
+              <span class="ml-track-name"></span>
+            `;
+            trow.querySelector('.ml-track-name').textContent = t.unavailable
+              ? `${t.title} — ${tr('trackUnavailable')}`
+              : t.title;
+            trow.addEventListener('click', () => {
+              p.playAt(t.index);
+            });
+            tracksEl.appendChild(trow);
+          });
+          details.appendChild(tracksEl);
+        } else if (item.kind === 'playlist') {
+          const hint = document.createElement('p');
+          hint.className = 'helper-text';
+          hint.textContent = tr('mlTracksHint');
+          details.appendChild(hint);
         }
-        persist();
-        renderMusicList();
-        syncMusicUI();
-      });
 
-      row.addEventListener('click', () => {
-        state.music.activeId = item.id;
-        window.OdakMusic.player.currentTitle = '';
-        window.OdakMusic.player.load(item, true);
-        persist();
-        renderMusicList();
-        syncMusicUI();
-      });
+        card.appendChild(details);
+      }
 
-      el.musicList.appendChild(row);
+      el.musicList.appendChild(card);
     });
+    const newTracksEl = el.musicList.querySelector('.ml-tracks');
+    if (newTracksEl && prevTracksScroll > 0) {
+      newTracksEl.scrollTop = prevTracksScroll;
+    }
   }
 
   function renderTimerUI(currentMs) {
@@ -1154,8 +1312,8 @@
       state.music.shortcutsEnabled = e.target.checked;
       persist();
     });
-    el.toggleMusicEnabled?.addEventListener('change', (e) => {
-      state.music.enabled = e.target.checked;
+    el.npMute?.addEventListener('click', () => {
+      state.music.enabled = !state.music.enabled;
       persist();
       applyAudio();
     });
@@ -1181,6 +1339,7 @@
       const item = { id, title, ...parsed };
       state.music.items.unshift(item);
       state.music.activeId = id;
+      expandedMusicId = id;
       el.inputMusicUrl.value = '';
       window.OdakMusic.player.currentTitle = '';
       window.OdakMusic.player.load(item, true);
