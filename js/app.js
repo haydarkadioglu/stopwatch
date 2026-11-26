@@ -92,6 +92,7 @@
   };
 
   let state = window.OdakDB.loadState(DEFAULT_STATE);
+  let sessionQuoteIndex = Math.floor(Math.random() * 1000);
   let timerEngine = null;
   let slideshowTimer = null;
   let idleTimer = null;
@@ -353,7 +354,7 @@
     });
 
     const quotes = window.OdakI18n.getQuotes(lang);
-    el.focusQuote.textContent = quotes[state.quoteIndex % quotes.length];
+    el.focusQuote.textContent = quotes[sessionQuoteIndex % quotes.length];
     if (timerEngine) {
       renderTimerUI(timerEngine.getCurrentMs());
     }
@@ -430,7 +431,7 @@
     el.taskInputWrap.classList.toggle('hidden', !d.showTask);
     el.focusQuote.classList.toggle('hidden', !d.showQuote);
     const quotes = window.OdakI18n.getQuotes(state.language);
-    el.focusQuote.textContent = quotes[state.quoteIndex % quotes.length];
+    el.focusQuote.textContent = quotes[sessionQuoteIndex % quotes.length];
 
     // Sync Drawer UI
     el.sliderBlur.value = state.background.blurPx;
@@ -1225,8 +1226,13 @@
 
     el.focusQuote.addEventListener('click', () => {
       const quotes = window.OdakI18n.getQuotes(state.language);
-      state.quoteIndex = (state.quoteIndex + 1) % quotes.length;
-      persist();
+      if (quotes.length > 1) {
+        let nextIdx = sessionQuoteIndex % quotes.length;
+        while (nextIdx === sessionQuoteIndex % quotes.length) {
+          nextIdx = Math.floor(Math.random() * quotes.length);
+        }
+        sessionQuoteIndex = nextIdx;
+      }
       applyDesign();
     });
 
