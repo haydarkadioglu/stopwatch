@@ -49,6 +49,27 @@
       clicksEnabled: true,
       ambientMode: 'none',
     },
+    bgAudio: {
+      enabled: false,
+      volume: 35,
+    },
+    music: {
+      showWidget: true,
+      enabled: true,
+      volume: 65,
+      loop: true,
+      activeId: 'music-sample-1',
+      items: [
+        {
+          id: 'music-sample-1',
+          title: 'Örnek Çalışma Listesi (YouTube Music)',
+          kind: 'playlist',
+          listId: 'PLqtMUv_N5txoOTx2_CqYZxwJmo6FWJAYT',
+          videoId: null,
+          url: 'https://music.youtube.com/playlist?list=PLqtMUv_N5txoOTx2_CqYZxwJmo6FWJAYT&si=H-CUysDf5ykHN8RL&drli=1',
+        },
+      ],
+    },
   };
 
   let state = window.OdakDB.loadState(DEFAULT_STATE);
@@ -110,6 +131,7 @@
     tabPanes: {
       backgrounds: document.getElementById('tab-pane-backgrounds'),
       design: document.getElementById('tab-pane-design'),
+      music: document.getElementById('tab-pane-music'),
       audio: document.getElementById('tab-pane-audio'),
     },
     sliderBlur: document.getElementById('slider-blur'),
@@ -146,6 +168,27 @@
     btnTestAlarm: document.getElementById('btn-test-alarm'),
     toggleClicks: document.getElementById('toggle-clicks'),
     selectAmbient: document.getElementById('select-ambient'),
+    toggleBgAudio: document.getElementById('toggle-bg-audio'),
+    sliderBgVolume: document.getElementById('slider-bg-volume'),
+    valBgVolume: document.getElementById('val-bg-volume'),
+    musicWidget: document.getElementById('music-widget'),
+    mwPrev: document.getElementById('mw-prev'),
+    mwPlay: document.getElementById('mw-play'),
+    mwNext: document.getElementById('mw-next'),
+    mwTitle: document.getElementById('mw-title'),
+    mwLoop: document.getElementById('mw-loop'),
+    mwMute: document.getElementById('mw-mute'),
+    toggleMusicWidget: document.getElementById('toggle-music-widget'),
+    drawerMusicPrev: document.getElementById('drawer-music-prev'),
+    drawerMusicPlay: document.getElementById('drawer-music-play'),
+    drawerMusicNext: document.getElementById('drawer-music-next'),
+    drawerMusicLoop: document.getElementById('drawer-music-loop'),
+    toggleMusicEnabled: document.getElementById('toggle-music-enabled'),
+    sliderMusicVolume: document.getElementById('slider-music-volume'),
+    valMusicVolume: document.getElementById('val-music-volume'),
+    inputMusicUrl: document.getElementById('input-music-url'),
+    btnAddMusic: document.getElementById('btn-add-music'),
+    musicList: document.getElementById('music-list'),
     toast: document.getElementById('toast'),
   };
 
@@ -205,7 +248,8 @@
 
   function applyActiveBackground(id) {
     const bg = window.OdakBackgrounds.apply(id, state.background.quality, state.background.blurPx);
-    window.OdakBackgrounds.syncAudio(state.audio.enabled, state.audio.volume);
+    const bgOn = state.audio.enabled && state.bgAudio.enabled;
+    window.OdakBackgrounds.syncAudio(bgOn, state.bgAudio.volume);
     syncQualityUI();
     return bg;
   }
@@ -290,7 +334,14 @@
       alarmPreset: a.alarmPreset,
       ambientMode: a.enabled ? a.ambientMode : 'none',
     });
-    window.OdakBackgrounds.syncAudio(a.enabled, a.volume);
+    const bgOn = a.enabled && state.bgAudio.enabled;
+    window.OdakBackgrounds.syncAudio(bgOn, state.bgAudio.volume);
+
+    const musicOn = a.enabled && state.music.enabled;
+    window.OdakMusic.player.configureAudio({
+      muted: !musicOn,
+      volume: state.music.volume,
+    });
 
     el.btnMute.classList.toggle('muted', !a.enabled);
     el.iconSoundOn.classList.toggle('hidden', !a.enabled);
@@ -302,6 +353,82 @@
     el.selectAlarm.value = a.alarmPreset;
     el.toggleClicks.checked = a.clicksEnabled;
     el.selectAmbient.value = a.ambientMode;
+
+    if (el.toggleBgAudio) el.toggleBgAudio.checked = state.bgAudio.enabled;
+    if (el.sliderBgVolume) el.sliderBgVolume.value = state.bgAudio.volume;
+    if (el.valBgVolume) el.valBgVolume.textContent = `${state.bgAudio.volume}%`;
+
+    syncMusicUI();
+  }
+
+  function syncMusicUI() {
+    const m = state.music;
+    const p = window.OdakMusic.player;
+    const activeItem = m.items.find((x) => x.id === m.activeId) || m.items[0];
+    const hasItems = m.items.length > 0;
+
+    if (el.musicWidget) {
+      el.musicWidget.classList.toggle('hidden', !m.showWidget || !hasItems);
+    }
+    if (el.mwTitle) {
+      el.mwTitle.textContent = p.currentTitle || activeItem?.title || 'YouTube Music';
+    }
+    if (el.mwPlay) {
+      el.mwPlay.textContent = p.isPlaying ? '⏸' : '▶';
+    }
+    if (el.drawerMusicPlay) {
+      el.drawerMusicPlay.textContent = p.isPlaying ? tr('musicPause') : tr('musicPlay');
+    }
+    if (el.mwLoop) el.mwLoop.classList.toggle('active', m.loop);
+    if (el.drawerMusicLoop) el.drawerMusicLoop.classList.toggle('active', m.loop);
+    if (el.mwMute) el.mwMute.classList.toggle('active', m.enabled && state.audio.enabled);
+
+    if (el.toggleMusicWidget) el.toggleMusicWidget.checked = m.showWidget;
+    if (el.toggleMusicEnabled) el.toggleMusicEnabled.checked = m.enabled;
+    if (el.sliderMusicVolume) el.sliderMusicVolume.value = m.volume;
+    if (el.valMusicVolume) el.valMusicVolume.textContent = `${m.volume}%`;
+  }
+
+  function renderMusicList() {
+    if (!el.musicList) return;
+    el.musicList.innerHTML = '';
+    state.music.items.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'music-item' + (item.id === state.music.activeId ? ' active' : '');
+      const typeLabel = item.kind === 'playlist' ? 'Playlist' : 'Tek Parça (Loop)';
+      row.innerHTML = `
+        <div class="music-item-meta">
+          <div class="music-item-title">${item.title}</div>
+          <div class="music-item-sub">${typeLabel}</div>
+        </div>
+        <button class="music-item-del" title="Sil">&times;</button>
+      `;
+
+      row.querySelector('.music-item-del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.music.items = state.music.items.filter((x) => x.id !== item.id);
+        if (state.music.activeId === item.id) {
+          state.music.activeId = state.music.items[0]?.id || null;
+          if (state.music.activeId) {
+            window.OdakMusic.player.load(state.music.items[0], false);
+          }
+        }
+        persist();
+        renderMusicList();
+        syncMusicUI();
+      });
+
+      row.addEventListener('click', () => {
+        state.music.activeId = item.id;
+        window.OdakMusic.player.currentTitle = '';
+        window.OdakMusic.player.load(item, true);
+        persist();
+        renderMusicList();
+        syncMusicUI();
+      });
+
+      el.musicList.appendChild(row);
+    });
   }
 
   function renderTimerUI(currentMs) {
@@ -858,6 +985,89 @@
       applyAudio();
     });
 
+    // Background Video Audio (Independent)
+    el.toggleBgAudio?.addEventListener('change', (e) => {
+      state.bgAudio.enabled = e.target.checked;
+      persist();
+      applyAudio();
+    });
+    el.sliderBgVolume?.addEventListener('input', (e) => {
+      state.bgAudio.volume = Number(e.target.value);
+      persist();
+      applyAudio();
+    });
+
+    // Music Controls (Widget + Drawer)
+    const toggleMusicPlay = () => {
+      const activeItem = state.music.items.find((x) => x.id === state.music.activeId) || state.music.items[0];
+      if (!window.OdakMusic.player.player && activeItem) {
+        window.OdakMusic.player.load(activeItem, true);
+      } else {
+        window.OdakMusic.player.togglePlay();
+      }
+    };
+    const toggleMusicLoop = () => {
+      state.music.loop = !state.music.loop;
+      window.OdakMusic.player.setLoop(state.music.loop);
+      persist();
+      syncMusicUI();
+    };
+
+    el.mwPlay?.addEventListener('click', toggleMusicPlay);
+    el.drawerMusicPlay?.addEventListener('click', toggleMusicPlay);
+    el.mwNext?.addEventListener('click', () => window.OdakMusic.player.next());
+    el.drawerMusicNext?.addEventListener('click', () => window.OdakMusic.player.next());
+    el.mwPrev?.addEventListener('click', () => window.OdakMusic.player.prev());
+    el.drawerMusicPrev?.addEventListener('click', () => window.OdakMusic.player.prev());
+    el.mwLoop?.addEventListener('click', toggleMusicLoop);
+    el.drawerMusicLoop?.addEventListener('click', toggleMusicLoop);
+    el.mwMute?.addEventListener('click', () => {
+      state.music.enabled = !state.music.enabled;
+      persist();
+      applyAudio();
+    });
+
+    el.toggleMusicWidget?.addEventListener('change', (e) => {
+      state.music.showWidget = e.target.checked;
+      persist();
+      syncMusicUI();
+    });
+    el.toggleMusicEnabled?.addEventListener('change', (e) => {
+      state.music.enabled = e.target.checked;
+      persist();
+      applyAudio();
+    });
+    el.sliderMusicVolume?.addEventListener('input', (e) => {
+      state.music.volume = Number(e.target.value);
+      persist();
+      applyAudio();
+    });
+
+    el.btnAddMusic?.addEventListener('click', () => {
+      const raw = el.inputMusicUrl.value.trim();
+      if (!raw) return;
+      const parsed = window.OdakMusic.parseYouTubeMusicUrl(raw);
+      if (!parsed) {
+        showToast(tr('toastMusicInvalid'));
+        return;
+      }
+      const id = 'music-' + Date.now();
+      const title =
+        parsed.kind === 'playlist'
+          ? `YouTube Playlist (${parsed.listId.slice(0, 8)}...)`
+          : `YouTube (${parsed.videoId})`;
+      const item = { id, title, ...parsed };
+      state.music.items.unshift(item);
+      state.music.activeId = id;
+      el.inputMusicUrl.value = '';
+      window.OdakMusic.player.currentTitle = '';
+      window.OdakMusic.player.load(item, true);
+      persist();
+      renderMusicList();
+      syncMusicUI();
+      showToast(tr('toastMusicAdded'));
+    });
+
     // Keyboard Shortcuts
     document.addEventListener('keydown', (e) => {
       const tag = e.target.tagName;
@@ -952,6 +1162,10 @@
     applyDesign();
     applyAudio();
     applyLanguage();
+    window.OdakMusic.player.onStateChange = syncMusicUI;
+    window.OdakMusic.player.setLoop(state.music.loop);
+    renderMusicList();
+    syncMusicUI();
     bindEvents();
     timerEngine.resumeIfRunning();
     resetIdleTimer();
