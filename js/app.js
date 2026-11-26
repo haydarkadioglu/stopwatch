@@ -116,7 +116,7 @@
     valBlur: document.getElementById('val-blur'),
     sliderDim: document.getElementById('slider-dim'),
     valDim: document.getElementById('val-dim'),
-    selectBgQuality: document.getElementById('select-bg-quality'),
+    qualityOptions: document.querySelectorAll('.quality-option'),
     qualityBadge: document.getElementById('quality-badge'),
     toggleSlideshow: document.getElementById('toggle-slideshow'),
     slideshowIntervalWrap: document.getElementById('slideshow-interval-wrap'),
@@ -193,7 +193,9 @@
 
   function syncQualityUI() {
     const mode = state.background.quality || 'auto';
-    if (el.selectBgQuality) el.selectBgQuality.value = mode;
+    el.qualityOptions?.forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.quality === mode);
+    });
     if (el.qualityBadge) {
       const { tier, reason } = window.OdakBackgrounds.resolveQuality(mode, state.background.blurPx);
       const labelMap = { low: '480p', medium: '720p', high: '1080p' };
@@ -689,10 +691,12 @@
       persist();
     });
 
-    el.selectBgQuality.addEventListener('change', (e) => {
-      state.background.quality = e.target.value;
-      persist();
-      applyActiveBackground(state.background.activeId);
+    el.qualityOptions?.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.background.quality = btn.dataset.quality;
+        persist();
+        applyActiveBackground(state.background.activeId);
+      });
     });
 
     const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
