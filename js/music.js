@@ -61,6 +61,7 @@
       this.volume = 65;
       this.muted = false;
       this.loop = true;
+      this.shuffle = false;
       this.currentTitle = '';
       this.currentAuthor = '';
       this.currentVideoId = '';
@@ -169,6 +170,7 @@
               this.ready = true;
               this.applyAudio();
               this.player.setLoop?.(this.loop);
+              this.player.setShuffle?.(this.shuffle);
               if (this.pendingSource?.autoPlay) {
                 this.player.playVideo?.();
               }
@@ -223,6 +225,7 @@
           }
         }
         this.player.setLoop?.(this.loop);
+        this.player.setShuffle?.(this.shuffle);
         this.applyAudio();
         setTimeout(() => this.syncMeta(), 450);
       }
@@ -267,17 +270,18 @@
       } catch (_) {}
     }
 
-    getPlaylistTracks(limit = 30) {
+    getPlaylistTracks(limit = 500) {
       if (!this.playlistIds.length) return [];
       return this.playlistIds.slice(0, limit).map((vid, index) => {
         const cached = this.metaCache.get(vid);
         return {
           index,
           videoId: vid,
-          title: cached?.title || vid,
+          title: cached?.title || `#${index + 1} · ${vid}`,
           thumb: cached?.thumb || `https://img.youtube.com/vi/${vid}/default.jpg`,
           current: index === this.playlistIndex,
           unavailable: this.unavailableIds.has(vid),
+          hasMeta: Boolean(cached && cached.title && !cached.title.startsWith('YouTube (')),
         };
       });
     }
@@ -333,6 +337,14 @@
     setLoop(loop) {
       this.loop = Boolean(loop);
       this.player?.setLoop?.(this.loop);
+    }
+
+    setShuffle(shuffle) {
+      this.shuffle = Boolean(shuffle);
+      if (this.player && this.ready) {
+        this.player.setShuffle?.(this.shuffle);
+        setTimeout(() => this.syncMeta(), 350);
+      }
     }
 
     configureAudio({ muted, volume }) {

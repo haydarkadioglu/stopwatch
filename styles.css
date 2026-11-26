@@ -1556,10 +1556,32 @@ input[type='range'] {
   text-overflow: ellipsis;
 }
 
+.queue-row.current {
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.36);
+}
+
+.queue-row.unavailable {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.queue-idx {
+  width: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+  flex-shrink: 0;
+}
+
 .drawer-music-queue {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .mw-art-wrap {

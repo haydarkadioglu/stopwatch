@@ -72,6 +72,7 @@
     music: {
       showWidget: true,
       shortcutsEnabled: true,
+      shuffle: false,
       scale: 100,
       enabled: true,
       volume: 65,
@@ -249,12 +250,15 @@
     sliderMusicScale: document.getElementById('slider-music-scale'),
     valMusicScale: document.getElementById('val-music-scale'),
     toggleMusicWidget: document.getElementById('toggle-music-widget'),
+    toggleMusicShuffle: document.getElementById('toggle-music-shuffle'),
     toggleMusicKeys: document.getElementById('toggle-music-keys'),
     drawerMusicQueue: document.getElementById('drawer-music-queue'),
+    npQueueCount: document.getElementById('np-queue-count'),
     drawerMusicPrev: document.getElementById('drawer-music-prev'),
     drawerMusicPlay: document.getElementById('drawer-music-play'),
     drawerMusicNext: document.getElementById('drawer-music-next'),
     drawerMusicLoop: document.getElementById('drawer-music-loop'),
+    drawerMusicShuffle: document.getElementById('drawer-music-shuffle'),
     npCover: document.getElementById('np-cover'),
     npCoverPh: document.getElementById('np-cover-ph'),
     npTitle: document.getElementById('np-title'),
@@ -557,6 +561,7 @@
     }
     if (el.mwLoop) el.mwLoop.classList.toggle('active', m.loop);
     if (el.drawerMusicLoop) el.drawerMusicLoop.classList.toggle('active', m.loop);
+    if (el.drawerMusicShuffle) el.drawerMusicShuffle.classList.toggle('active', Boolean(m.shuffle));
     const musicAudible = m.enabled && state.audio.enabled;
     if (el.mwMute) el.mwMute.classList.toggle('active', musicAudible);
     if (el.mwIconVol && el.mwIconMuted) {
@@ -600,6 +605,7 @@
     }
 
     if (el.toggleMusicWidget) el.toggleMusicWidget.checked = m.showWidget;
+    if (el.toggleMusicShuffle) el.toggleMusicShuffle.checked = Boolean(m.shuffle);
     if (el.toggleMusicKeys) el.toggleMusicKeys.checked = m.shortcutsEnabled !== false;
     if (el.sliderMusicVolume) el.sliderMusicVolume.value = m.volume;
     if (el.valMusicVolume) el.valMusicVolume.textContent = `${m.volume}%`;
@@ -614,38 +620,95 @@
     renderMusicList();
   }
 
+  let queueObserver = null;
+
+  function observeLazyTrackMeta(container) {
+    if (!container || typeof IntersectionObserver === 'undefined') return;
+    if (queueObserver) queueObserver.disconnect();
+    queueObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const vid = entry.target.dataset.vid;
+            if (vid) window.OdakMusic.player.fetchVideoMeta(vid);
+            queueObserver.unobserve(entry.target);
+          }
+        });
+      },
+      { root: container, rootMargin: '120px' }
+    );
+    container.querySelectorAll('[data-vid]').forEach((node) => queueObserver.observe(node));
+  }
+
   function renderMusicQueue() {
-    const { prev, next } = window.OdakMusic.player.getQueuePreview();
-    const rows = [
+    const p = window.OdakMusic.player;
+    const { prev, next } = p.getQueuePreview();
+    const previewRows = [
       ...prev.map((item) => ({ ...item, tag: tr('queuePrev') })),
       ...next.map((item) => ({ ...item, tag: tr('queueNext') })),
     ];
 
-    const populate = (container) => {
-      if (!container) return;
-      container.innerHTML = '';
-      if (rows.length === 0) {
-        container.classList.add('hidden');
-        return;
+    if (el.mwQueuePopover) {
+      el.mwQueuePopover.innerHTML = '';
+      if (previewRows.length === 0) {
+        el.mwQueuePopover.classList.add('hidden');
+      } else {
+        el.mwQueuePopover.classList.remove('hidden');
+        previewRows.forEach((r) => {
+          const div = document.createElement('div');
+          div.className = 'queue-row';
+          div.innerHTML = `
+            <img class="queue-thumb" src="${r.thumb}" alt="" loading="lazy" />
+            <div class="queue-meta">
+              <div class="queue-tag">${r.tag}</div>
+              <div class="queue-title"></div>
+            </div>
+          `;
+          div.querySelector('.queue-title').textContent = r.title;
+          div.addEventListener('click', () => p.playAt(r.index));
+          el.mwQueuePopover.appendChild(div);
+        });
       }
-      container.classList.remove('hidden');
-      rows.forEach((r) => {
-        const div = document.createElement('div');
-        div.className = 'queue-row';
-        div.innerHTML = `
-          <img class="queue-thumb" src="${r.thumb}" alt="" loading="lazy" />
-          <div class="queue-meta">
-            <div class="queue-tag">${r.tag}</div>
-            <div class="queue-title">${r.title}</div>
-          </div>
-        `;
-        div.addEventListener('click', () => window.OdakMusic.player.playAt(r.index));
-        container.appendChild(div);
-      });
-    };
+    }
 
-    populate(el.mwQueuePopover);
-    populate(el.drawerMusicQueue);
+    if (el.drawerMusicQueue) {
+      const allTracks = p.getPlaylistTracks(500);
+      if (el.npQueueCount) {
+        el.npQueueCount.textContent = String(allTracks.length);
+        el.npQueueCount.classList.toggle('hidden', allTracks.length === 0);
+      }
+      const prevScroll = el.drawerMusicQueue.scrollTop || 0;
+      el.drawerMusicQueue.innerHTML = '';
+      if (allTracks.length === 0) {
+        el.drawerMusicQueue.classList.add('hidden');
+      } else {
+        el.drawerMusicQueue.classList.remove('hidden');
+        allTracks.forEach((t) => {
+          const div = document.createElement('div');
+          div.className =
+            'queue-row' +
+            (t.current ? ' current' : '') +
+            (t.unavailable ? ' unavailable' : '');
+          if (!t.hasMeta) div.dataset.vid = t.videoId;
+          div.innerHTML = `
+            <span class="queue-idx">${t.index + 1}</span>
+            <img class="queue-thumb" src="${t.thumb}" alt="" loading="lazy" />
+            <div class="queue-meta">
+              <div class="queue-title"></div>
+            </div>
+          `;
+          div.querySelector('.queue-title').textContent = t.unavailable
+            ? `${t.title} — ${tr('trackUnavailable')}`
+            : t.title;
+          div.addEventListener('click', () => p.playAt(t.index));
+          el.drawerMusicQueue.appendChild(div);
+        });
+        if (prevScroll > 0) {
+          el.drawerMusicQueue.scrollTop = prevScroll;
+        }
+        observeLazyTrackMeta(el.drawerMusicQueue);
+      }
+    }
   }
 
   function renderMusicList() {
@@ -767,12 +830,13 @@
         if (isPlayingItem && item.kind === 'playlist' && p.playlistIds.length > 0) {
           const tracksEl = document.createElement('div');
           tracksEl.className = 'ml-tracks';
-          p.getPlaylistTracks(30).forEach((t) => {
+          p.getPlaylistTracks(500).forEach((t) => {
             const trow = document.createElement('div');
             trow.className =
               'ml-track-row' +
               (t.current ? ' current' : '') +
               (t.unavailable ? ' unavailable' : '');
+            if (!t.hasMeta) trow.dataset.vid = t.videoId;
             trow.innerHTML = `
               <span class="ml-track-idx">${t.index + 1}</span>
               <img class="ml-track-thumb" src="${t.thumb}" alt="" loading="lazy" />
@@ -787,6 +851,7 @@
             tracksEl.appendChild(trow);
           });
           details.appendChild(tracksEl);
+          observeLazyTrackMeta(tracksEl);
         } else if (item.kind === 'playlist') {
           const hint = document.createElement('p');
           hint.className = 'helper-text';
@@ -1589,6 +1654,12 @@
       persist();
       syncMusicUI();
     };
+    const toggleMusicShuffle = () => {
+      state.music.shuffle = !state.music.shuffle;
+      window.OdakMusic.player.setShuffle(state.music.shuffle);
+      persist();
+      syncMusicUI();
+    };
 
     el.mwPlay?.addEventListener('click', toggleMusicPlay);
     el.drawerMusicPlay?.addEventListener('click', toggleMusicPlay);
@@ -1598,6 +1669,7 @@
     el.drawerMusicPrev?.addEventListener('click', () => window.OdakMusic.player.prev());
     el.mwLoop?.addEventListener('click', toggleMusicLoop);
     el.drawerMusicLoop?.addEventListener('click', toggleMusicLoop);
+    el.drawerMusicShuffle?.addEventListener('click', toggleMusicShuffle);
     el.mwMute?.addEventListener('click', (e) => {
       e.stopPropagation();
       el.mwVolPopover?.classList.toggle('hidden');
@@ -1623,6 +1695,12 @@
 
     el.toggleMusicWidget?.addEventListener('change', (e) => {
       state.music.showWidget = e.target.checked;
+      persist();
+      syncMusicUI();
+    });
+    el.toggleMusicShuffle?.addEventListener('change', (e) => {
+      state.music.shuffle = e.target.checked;
+      window.OdakMusic.player.setShuffle(state.music.shuffle);
       persist();
       syncMusicUI();
     });
@@ -1885,6 +1963,7 @@
     if (state.weather.enabled) refreshWeather(false);
     window.OdakMusic.player.onStateChange = syncMusicUI;
     window.OdakMusic.player.setLoop(state.music.loop);
+    window.OdakMusic.player.setShuffle(Boolean(state.music.shuffle));
     const activeMusic = state.music.items.find((x) => x.id === state.music.activeId) || state.music.items[0];
     if (activeMusic) {
       window.OdakMusic.player.load(activeMusic, false);
