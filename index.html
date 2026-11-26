@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Odak — Online Çalışma Kronometresi &amp; Zamanlayıcı</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="font-outfit card-glass">
+  <!-- Background Layers -->
+  <div id="bg-stage" class="bg-stage" aria-hidden="true">
+    <canvas id="bg-canvas" class="bg-media hidden"></canvas>
+    <img id="bg-image" class="bg-media hidden" alt="" />
+    <video id="bg-video" class="bg-media hidden" autoplay loop muted playsinline></video>
+    <div id="bg-dim-overlay" class="bg-dim-overlay"></div>
+  </div>
+
+  <!-- Main App Shell -->
+  <div id="app-shell" class="app-shell">
+    <!-- Top HUD -->
+    <header class="top-hud fade-on-idle">
+      <div class="hud-left">
+        <div class="brand-pill" title="Lokal önbellek aktif">
+          <span class="status-dot" id="cache-dot"></span>
+          <span class="brand-name" data-i18n="brand">ODAK</span>
+        </div>
+        <div class="task-input-wrap" id="task-input-wrap">
+          <input
+            type="text"
+            id="study-task-input"
+            class="study-task-input"
+            placeholder="Şu an ne çalışıyorsun? (örn. Matematik, Tez...)"
+            data-i18n-placeholder="taskPlaceholder"
+            maxlength="60"
+            autocomplete="off"
+          />
+        </div>
+      </div>
+
+      <div class="hud-right">
+        <select id="hud-lang-select" class="hud-lang-select" aria-label="Language"></select>
+
+        <button
+          id="btn-next-bg"
+          class="icon-btn"
+          title="Sonraki Arka Plan (B)"
+          aria-label="Sonraki Arka Plan"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <span class="btn-label-sm" data-i18n="changeBg">Değiştir</span>
+        </button>
+
+        <button
+          id="btn-mute"
+          class="icon-btn"
+          title="Sesi Kapat / Aç (M)"
+          aria-label="Sesi Kapat veya Aç"
+        >
+          <svg id="icon-sound-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+          <svg id="icon-sound-off" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <line x1="23" y1="9" x2="17" y2="15"></line>
+            <line x1="17" y1="9" x2="23" y2="15"></line>
+          </svg>
+        </button>
+
+        <button
+          id="btn-customize"
+          class="icon-btn"
+          title="Tasarım &amp; Arka Plan Ayarları (S)"
+          aria-label="Tasarım ve Arka Plan Ayarları"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          <span class="btn-label-sm" data-i18n="designBtn">Tasarla</span>
+        </button>
+
+        <button
+          id="btn-fullscreen"
+          class="icon-btn"
+          title="Tam Ekran (F)"
+          aria-label="Tam Ekran"
+        >
+          <svg id="icon-fs-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+          <svg id="icon-fs-exit" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 14 10 14 10 20"></polyline>
+            <polyline points="20 10 14 10 14 4"></polyline>
+            <line x1="14" y1="10" x2="21" y2="3"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Center Timer Card -->
+    <main class="center-stage">
+      <section class="timer-card" id="timer-card">
+        <!-- Mode Switcher -->
+        <div class="mode-switcher fade-on-idle" role="tablist" aria-label="Sayaç Modu">
+          <button
+            id="tab-stopwatch"
+            class="mode-btn active"
+            role="tab"
+            aria-selected="true"
+            data-mode="stopwatch"
+            data-i18n="stopwatch"
+          >
+            Kronometre
+          </button>
+          <button
+            id="tab-countdown"
+            class="mode-btn"
+            role="tab"
+            aria-selected="false"
+            data-mode="countdown"
+            data-i18n="countdown"
+          >
+            Geri Sayım
+          </button>
+        </div>
+
+        <!-- Countdown Presets & Custom Input (shown in countdown mode) -->
+        <div id="countdown-setup" class="countdown-setup hidden fade-on-idle">
+          <div class="preset-chips">
+            <button class="chip-btn" data-minutes="15">15 <span data-i18n="minShort">dk</span></button>
+            <button class="chip-btn" data-minutes="25">25 <span data-i18n="minShort">dk</span></button>
+            <button class="chip-btn" data-minutes="45">45 <span data-i18n="minShort">dk</span></button>
+            <button class="chip-btn" data-minutes="50">50 <span data-i18n="minShort">dk</span></button>
+            <button class="chip-btn" data-minutes="90">90 <span data-i18n="minShort">dk</span></button>
+          </div>
+          <div class="custom-time-inputs" id="custom-time-inputs">
+            <label class="time-field">
+              <input type="number" id="input-hours" min="0" max="23" value="0" aria-label="Saat" />
+              <span data-i18n="hrShort">sa</span>
+            </label>
+            <span class="time-sep">:</span>
+            <label class="time-field">
+              <input type="number" id="input-minutes" min="0" max="59" value="25" aria-label="Dakika" />
+              <span data-i18n="minShort">dk</span>
+            </label>
+            <span class="time-sep">:</span>
+            <label class="time-field">
+              <input type="number" id="input-seconds" min="0" max="59" value="0" aria-label="Saniye" />
+              <span data-i18n="secShort">sn</span>
+            </label>
+            <button id="btn-apply-time" class="apply-time-btn" data-i18n="apply" title="Süreyi Uygula">Ayarla</button>
+          </div>
+        </div>
+
+        <!-- Main Clock Display -->
+        <div class="timer-display-wrap" id="timer-display-wrap">
+          <div id="timer-display" class="timer-display" aria-live="off">00:00:00</div>
+          <div id="timer-ms" class="timer-ms">.00</div>
+        </div>
+
+        <!-- Progress Bar (for Countdown) -->
+        <div id="countdown-progress-wrap" class="countdown-progress-wrap hidden">
+          <div id="countdown-progress-bar" class="countdown-progress-bar"></div>
+        </div>
+
+        <!-- Primary Controls -->
+        <div class="timer-controls fade-on-idle">
+          <button id="btn-start-pause" class="ctrl-btn primary-btn">
+            <span id="start-pause-label">Başlat</span>
+          </button>
+
+          <button id="btn-lap" class="ctrl-btn secondary-btn" data-i18n="lap" title="Tur Kaydet (L)">
+            Tur
+          </button>
+
+          <button id="btn-add-min" class="ctrl-btn secondary-btn hidden" data-i18n="addMin" title="+1 Dakika Ekle">
+            +1 dk
+          </button>
+
+          <button id="btn-reset" class="ctrl-btn ghost-btn" data-i18n="reset" title="Sıfırla (R)">
+            Sıfırla
+          </button>
+        </div>
+
+        <!-- Optional Quote / Focus Subtitle -->
+        <p id="focus-quote" class="focus-quote fade-on-idle">
+          “Küçük adımlar, büyük sonuçların sessiz mimarıdır.”
+        </p>
+      </section>
+
+      <!-- Laps Section -->
+      <section id="laps-panel" class="laps-panel hidden fade-on-idle" aria-label="Turlar">
+        <div class="laps-header">
+          <div class="laps-title-wrap">
+            <h3 data-i18n="laps">Turlar</h3>
+            <span id="laps-count" class="laps-badge">0</span>
+          </div>
+          <div class="laps-actions">
+            <button id="btn-copy-laps" class="text-btn" data-i18n="copy" title="Turları Panoya Kopyala">Kopyala</button>
+            <button id="btn-clear-laps" class="text-btn danger-text" data-i18n="clear" title="Turları Temizle">Temizle</button>
+          </div>
+        </div>
+        <div class="laps-list" id="laps-list"></div>
+      </section>
+    </main>
+
+    <!-- Bottom Status / Quick Info -->
+    <footer class="bottom-hud fade-on-idle">
+      <div class="shortcut-hints">
+        <span><kbd>Space</kbd> <span data-i18n="kbStartPause">Başlat/Duraklat</span></span>
+        <span><kbd>L</kbd> <span data-i18n="kbLap">Tur</span></span>
+        <span><kbd>F</kbd> <span data-i18n="kbFullscreen">Tam Ekran</span></span>
+        <span><kbd>M</kbd> <span data-i18n="kbSound">Ses</span></span>
+      </div>
+      <div id="slideshow-status" class="slideshow-status hidden"></div>
+    </footer>
+  </div>
+
+  <!-- Customization & Background Studio Drawer -->
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+  <aside id="studio-drawer" class="studio-drawer" aria-hidden="true" aria-label="Tasarım ve Arka Plan Stüdyosu">
+    <div class="drawer-header">
+      <h2 data-i18n="studioTitle">Stüdyo &amp; Ayarlar</h2>
+      <button id="btn-close-drawer" class="close-btn" aria-label="Kapat">&times;</button>
+    </div>
+
+    <div class="drawer-tabs" role="tablist">
+      <button class="drawer-tab active" data-tab="backgrounds" data-i18n="tabBackgrounds" role="tab">Arka Plan</button>
+      <button class="drawer-tab" data-tab="design" data-i18n="tabDesign" role="tab">Tasarım</button>
+      <button class="drawer-tab" data-tab="audio" data-i18n="tabAudio" role="tab">Ses</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- TAB 1: BACKGROUNDS -->
+      <div id="tab-pane-backgrounds" class="tab-pane active">
+        <div class="control-group">
+          <div class="range-row">
+            <label for="slider-blur" data-i18n="blurLabel">Arka Plan Bulanıklığı (Blur)</label>
+            <span id="val-blur" class="range-val">4 px</span>
+          </div>
+          <input type="range" id="slider-blur" min="0" max="30" step="1" value="4" />
+        </div>
+
+        <div class="control-group">
+          <div class="range-row">
+            <label for="slider-dim" data-i18n="dimLabel">Karartma (Okunabilirlik)</label>
+            <span id="val-dim" class="range-val">35%</span>
+          </div>
+          <input type="range" id="slider-dim" min="0" max="85" step="1" value="35" />
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Slideshow Controls -->
+        <div class="control-group">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-title" data-i18n="slideshowTitle">Çoklu Arka Plan (Slayt Gösterisi)</div>
+              <div class="toggle-desc" data-i18n="slideshowDesc">Seçili arka planlar arasında otomatik geçiş yap</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-slideshow" />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div id="slideshow-interval-wrap" class="sub-control hidden">
+            <label for="select-slideshow-interval" data-i18n="slideshowInterval">Değişim Süresi:</label>
+            <select id="select-slideshow-interval">
+              <option value="30" data-i18n="sec30">30 Saniye</option>
+              <option value="60" selected data-i18n="min1">1 Dakika</option>
+              <option value="180" data-i18n="min3">3 Dakika</option>
+              <option value="300" data-i18n="min5">5 Dakika</option>
+              <option value="900" data-i18n="min15">15 Dakika</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Upload Custom Photo / Video -->
+        <div class="control-group">
+          <div class="section-label-row">
+            <span class="section-label" data-i18n="uploadTitle">Kendi Fotoğraf / Videonu Yükle</span>
+            <span id="cache-usage-label" class="cache-badge">Önbellek: 0 MB</span>
+          </div>
+          <p class="helper-text" data-i18n="uploadDesc">Yüklediğin görseller ve MP4/WebM videolar tarayıcının lokal önbelleğinde (IndexedDB) saklanır.</p>
+          <div class="upload-actions">
+            <label class="upload-btn">
+              <input type="file" id="input-upload-media" accept="image/*,video/mp4,video/webm,video/ogg" multiple hidden />
+              <span data-i18n="uploadBtn">+ Fotoğraf veya Video Seç</span>
+            </label>
+          </div>
+          <div class="url-add-row">
+            <input type="url" id="input-bg-url" placeholder="Veya görsel / video URL yapıştır..." data-i18n-placeholder="urlPlaceholder" />
+            <button id="btn-add-url" class="small-btn" data-i18n="addBtn">Ekle</button>
+          </div>
+        </div>
+
+        <!-- Background Gallery -->
+        <div class="control-group">
+          <div class="section-label-row">
+            <span class="section-label" data-i18n="galleryTitle">Arka Plan Galerisi</span>
+            <span class="helper-inline" data-i18n="galleryHint">Çoklu seçim için tik at</span>
+          </div>
+          <div id="bg-gallery" class="bg-gallery"></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: DESIGN -->
+      <div id="tab-pane-design" class="tab-pane hidden">
+        <div class="control-group">
+          <label for="drawer-lang-select" class="section-label" data-i18n="languageLabel">Dil / Language</label>
+          <select id="drawer-lang-select" class="full-select"></select>
+        </div>
+
+        <div class="control-group">
+          <label class="section-label" data-i18n="fontLabel">Yazı Tipi (Font)</label>
+          <div class="font-grid">
+            <button class="font-option active" data-font="font-outfit" data-i18n="fontModern">Modern</button>
+            <button class="font-option" data-font="font-mono" data-i18n="fontMono">Mono</button>
+            <button class="font-option" data-font="font-serif" data-i18n="fontSerif">Editoryal</button>
+            <button class="font-option" data-font="font-rounded" data-i18n="fontRounded">Yuvarlak</button>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="range-row">
+            <label for="slider-clock-size" data-i18n="clockSizeLabel">Saat Boyutu</label>
+            <span id="val-clock-size" class="range-val">100%</span>
+          </div>
+          <input type="range" id="slider-clock-size" min="65" max="140" step="5" value="100" />
+        </div>
+
+        <div class="control-group">
+          <label class="section-label" data-i18n="accentLabel">Vurgu Rengi</label>
+          <div class="color-swatches" id="color-swatches">
+            <button class="swatch active" data-color="#f59e0b" style="--sw: #f59e0b" title="Kehribar"></button>
+            <button class="swatch" data-color="#10b981" style="--sw: #10b981" title="Zümrüt"></button>
+            <button class="swatch" data-color="#38bdf8" style="--sw: #38bdf8" title="Okyanus"></button>
+            <button class="swatch" data-color="#a78bfa" style="--sw: #a78bfa" title="Lavanta"></button>
+            <button class="swatch" data-color="#fb7185" style="--sw: #fb7185" title="Gül"></button>
+            <button class="swatch" data-color="#f8fafc" style="--sw: #f8fafc" title="Saf Beyaz"></button>
+            <label class="custom-color-label" title="Özel Renk">
+              <input type="color" id="input-accent-color" value="#f59e0b" />
+              <span>+</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label class="section-label" data-i18n="cardStyleLabel">Kart Görünümü</label>
+          <div class="card-style-grid">
+            <button class="style-option active" data-card="card-glass" data-i18n="cardGlass">Buzlu Cam</button>
+            <button class="style-option" data-card="card-minimal" data-i18n="cardMinimal">Çerçevesiz</button>
+            <button class="style-option" data-card="card-solid" data-i18n="cardSolid">Koyu Mat</button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="control-group toggles-list">
+          <div class="toggle-row">
+            <span data-i18n="showMs">Saliseyi (.00) Göster</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-ms" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <span data-i18n="showTask">Çalışma Başlığını Göster</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-task" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <span data-i18n="showQuote">Motivasyon Sözünü Göster</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-quote" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-title" data-i18n="zenTitle">Zen Modu (Boşta Gizle)</div>
+              <div class="toggle-desc" data-i18n="zenDesc">Hareket yoksa butonları hafifçe gizle</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-zen" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <button id="btn-reset-design" class="danger-outline-btn" data-i18n="resetDesign">Tasarımı Varsayılana Sıfırla</button>
+      </div>
+
+      <!-- TAB 3: AUDIO -->
+      <div id="tab-pane-audio" class="tab-pane hidden">
+        <div class="control-group">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-title" data-i18n="soundAllTitle">Tüm Sesler</div>
+              <div class="toggle-desc" data-i18n="soundAllDesc">Alarm, tıklama ve ambiyans seslerini kontrol et</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="toggle-sound-enabled" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="range-row">
+            <label for="slider-volume" data-i18n="volumeLabel">Ses Seviyesi</label>
+            <span id="val-volume" class="range-val">70%</span>
+          </div>
+          <input type="range" id="slider-volume" min="0" max="100" step="5" value="70" />
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="control-group">
+          <div class="section-label-row">
+            <label for="select-alarm" class="section-label" data-i18n="alarmLabel">Geri Sayım Bitiş Sesi</label>
+            <button id="btn-test-alarm" class="small-btn" data-i18n="testBtn">Test Et</button>
+          </div>
+          <select id="select-alarm" class="full-select">
+            <option value="chime" data-i18n="alarmChime">Yumuşak Çan (Önerilen)</option>
+            <option value="crystal" data-i18n="alarmCrystal">Kristal Melodi</option>
+            <option value="digital" data-i18n="alarmDigital">Klasik Dijital</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <div class="toggle-row">
+            <span data-i18n="clicksLabel">Tuş ve Tur Tıklama Sesi</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-clicks" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="control-group">
+          <label for="select-ambient" class="section-label" data-i18n="ambientLabel">Odak Ambiyans Sesi (Çevrimdışı)</label>
+          <p class="helper-text" data-i18n="ambientDesc">Tarayıcı içinde gerçek zamanlı üretilir, internet gerektirmez.</p>
+          <select id="select-ambient" class="full-select">
+            <option value="none" data-i18n="ambientNone">Kapalı</option>
+            <option value="rain" data-i18n="ambientRain">Hafif Yağmur</option>
+            <option value="brown" data-i18n="ambientBrown">Kahverengi Gürültü (Derin Odak)</option>
+            <option value="drone" data-i18n="ambientDrone">Sıcak Lo-Fi Ambiyans</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <!-- Scripts (ordered so file:// and http:// both work seamlessly) -->
+  <script src="js/db.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/backgrounds.js"></script>
+  <script src="js/timer.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
