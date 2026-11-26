@@ -271,6 +271,8 @@
     valMusicVolume: document.getElementById('val-music-volume'),
     inputMusicUrl: document.getElementById('input-music-url'),
     btnAddMusic: document.getElementById('btn-add-music'),
+    selectTargetPlaylist: document.getElementById('select-target-playlist'),
+    inputNewPlaylistName: document.getElementById('input-new-playlist-name'),
     musicListCount: document.getElementById('music-list-count'),
     musicList: document.getElementById('music-list'),
     timeupBanner: document.getElementById('timeup-banner'),
@@ -365,6 +367,7 @@
     syncSlideshow();
     renderGallery();
     renderMusicList();
+    populateTargetPlaylistSelect();
     syncMusicUI();
     renderWeatherPill();
     updateCacheUsage();
@@ -711,8 +714,61 @@
     }
   }
 
+  function populateTargetPlaylistSelect() {
+    if (!el.selectTargetPlaylist) return;
+    const prevVal = el.selectTargetPlaylist.value;
+    const localLists = state.music.items.filter((x) => x.kind === 'local_playlist');
+    el.selectTargetPlaylist.innerHTML = '';
+
+    localLists.forEach((pl) => {
+      const opt = document.createElement('option');
+      opt.value = pl.id;
+      opt.textContent = `${pl.title} (${(pl.tracks || []).length})`;
+      el.selectTargetPlaylist.appendChild(opt);
+    });
+
+    const newOpt = document.createElement('option');
+    newOpt.value = '__new__';
+    newOpt.textContent = tr('newLocalPlaylistOption');
+    el.selectTargetPlaylist.appendChild(newOpt);
+
+    if (prevVal && (prevVal === '__new__' || localLists.some((l) => l.id === prevVal))) {
+      el.selectTargetPlaylist.value = prevVal;
+    } else if (localLists.length > 0) {
+      el.selectTargetPlaylist.value = localLists[0].id;
+    } else {
+      el.selectTargetPlaylist.value = '__new__';
+    }
+    if (el.inputNewPlaylistName) {
+      el.inputNewPlaylistName.classList.toggle('hidden', el.selectTargetPlaylist.value !== '__new__');
+    }
+  }
+
+  function migrateSingleTracksToLocalPlaylist() {
+    const singles = state.music.items.filter((x) => x.kind === 'video' && x.videoId);
+    if (singles.length === 0) return;
+    let target = state.music.items.find((x) => x.kind === 'local_playlist');
+    if (!target) {
+      target = {
+        id: 'local-pl-' + Date.now(),
+        title: tr('localPlaylistDefaultName', { n: 1 }),
+        kind: 'local_playlist',
+        tracks: [],
+        index: 0,
+      };
+      state.music.items.unshift(target);
+    }
+    singles.forEach((s) => {
+      if (!target.tracks.includes(s.videoId)) target.tracks.push(s.videoId);
+      if (state.music.activeId === s.id) state.music.activeId = target.id;
+    });
+    state.music.items = state.music.items.filter((x) => x.kind !== 'video');
+    persist();
+  }
+
   function renderMusicList() {
     if (!el.musicList) return;
+    populateTargetPlaylistSelect();
     if (el.musicListCount) {
       el.musicListCount.textContent = String(state.music.items.length);
     }
@@ -733,10 +789,18 @@
         (isPlayingItem ? ' active' : '') +
         (isExpanded ? ' expanded' : '');
 
-      const typeLabel = item.kind === 'playlist' ? tr('musicTypePlaylist') : tr('musicTypeSingle');
+      const typeLabel =
+        item.kind === 'local_playlist'
+          ? tr('localPlaylistBadge')
+          : item.kind === 'playlist'
+          ? tr('musicTypePlaylist')
+          : tr('musicTypeSingle');
       const itemTitle = item.id === 'music-sample-1' ? tr('musicSampleTitle') : item.title;
+      const localCount = item.kind === 'local_playlist' ? (item.tracks || []).length : 0;
       const trackCountText =
-        isPlayingItem && item.kind === 'playlist' && p.playlistIds.length > 0
+        item.kind === 'local_playlist'
+          ? ` · ${tr('mlTrackCount', { n: localCount })}`
+          : isPlayingItem && item.kind === 'playlist' && p.playlistIds.length > 0
           ? ` · ${tr('mlTrackCount', { n: p.playlistIds.length })}`
           : '';
 
@@ -778,6 +842,7 @@
           }
           item.title = e.target.value;
           header.querySelector('.ml-title').textContent = item.title || tr('mlRenamePlaceholder');
+          populateTargetPlaylistSelect();
           persist();
         });
         details.appendChild(renameInput);
@@ -800,7 +865,10 @@
 
         const ytLink = document.createElement('a');
         ytLink.className = 'small-btn';
-        ytLink.href = item.url;
+        ytLink.href =
+          item.kind === 'local_playlist' && item.tracks?.length
+            ? `https://www.youtube.com/watch?v=${item.tracks[0]}`
+            : item.url || '#';
         ytLink.target = '_blank';
         ytLink.rel = 'noopener noreferrer';
         ytLink.textContent = tr('mlOpenYT');
@@ -827,7 +895,52 @@
         actions.appendChild(delBtn);
         details.appendChild(actions);
 
-        if (isPlayingItem && item.kind === 'playlist' && p.playlistIds.length > 0) {
+        if (item.kind === 'local_playlist' && (item.tracks || []).length > 0) {
+          const tracksEl = document.createElement('div');
+          tracksEl.className = 'ml-tracks';
+          item.tracks.forEach((vid, idx) => {
+            const cached = p.metaCache.get(vid);
+            const hasMeta = Boolean(cached && cached.title && !cached.title.startsWith('YouTube ('));
+            const title = cached?.title || `#${idx + 1} · ${vid}`;
+            const thumb = cached?.thumb || `https://img.youtube.com/vi/${vid}/default.jpg`;
+            const isCur = isPlayingItem && idx === p.playlistIndex;
+
+            const trow = document.createElement('div');
+            trow.className = 'ml-track-row' + (isCur ? ' current' : '');
+            if (!hasMeta) trow.dataset.vid = vid;
+            trow.innerHTML = `
+              <span class="ml-track-idx">${idx + 1}</span>
+              <img class="ml-track-thumb" src="${thumb}" alt="" loading="lazy" />
+              <span class="ml-track-name"></span>
+              <button class="music-item-del" title="×">&times;</button>
+            `;
+            trow.querySelector('.ml-track-name').textContent = title;
+            trow.querySelector('.music-item-del').addEventListener('click', (e) => {
+              e.stopPropagation();
+              item.tracks = item.tracks.filter((_, i) => i !== idx);
+              if (isPlayingItem && item.tracks.length > 0) {
+                p.load(item, p.isPlaying);
+              }
+              persist();
+              renderMusicList();
+              syncMusicUI();
+            });
+            trow.addEventListener('click', () => {
+              if (!isPlayingItem) {
+                state.music.activeId = item.id;
+                p.load({ ...item, index: idx }, true);
+                persist();
+              } else {
+                p.playAt(idx);
+              }
+              renderMusicList();
+              syncMusicUI();
+            });
+            tracksEl.appendChild(trow);
+          });
+          details.appendChild(tracksEl);
+          observeLazyTrackMeta(tracksEl);
+        } else if (isPlayingItem && item.kind === 'playlist' && p.playlistIds.length > 0) {
           const tracksEl = document.createElement('div');
           tracksEl.className = 'ml-tracks';
           p.getPlaylistTracks(500).forEach((t) => {
@@ -1098,7 +1211,7 @@
           state.background.selectedIds = state.background.selectedIds.filter((x) => x !== bg.id);
           if (state.background.activeId === bg.id) {
             state.background.activeId = 'canvas-aurora';
-            window.OdakBackgrounds.apply(state.background.activeId);
+            applyActiveBackground(state.background.activeId);
           }
           persist();
           renderGallery();
@@ -1386,7 +1499,7 @@
           }
         });
         state.background.activeId = added[0].id;
-        window.OdakBackgrounds.apply(added[0].id);
+        applyActiveBackground(added[0].id);
         persist();
         renderGallery();
         updateCacheUsage();
@@ -1402,7 +1515,7 @@
       if (item) {
         state.background.selectedIds.push(item.id);
         state.background.activeId = item.id;
-        window.OdakBackgrounds.apply(item.id);
+        applyActiveBackground(item.id);
         el.inputBgUrl.value = '';
         persist();
         renderGallery();
@@ -1719,6 +1832,12 @@
       applyAudio();
     });
 
+    el.selectTargetPlaylist?.addEventListener('change', () => {
+      if (el.inputNewPlaylistName) {
+        el.inputNewPlaylistName.classList.toggle('hidden', el.selectTargetPlaylist.value !== '__new__');
+      }
+    });
+
     el.btnAddMusic?.addEventListener('click', () => {
       const raw = el.inputMusicUrl.value.trim();
       if (!raw) return;
@@ -1727,22 +1846,62 @@
         showToast(tr('toastMusicInvalid'));
         return;
       }
-      const id = 'music-' + Date.now();
-      const title =
-        parsed.kind === 'playlist'
-          ? `YouTube Playlist (${parsed.listId.slice(0, 8)}...)`
-          : `YouTube (${parsed.videoId})`;
-      const item = { id, title, ...parsed };
-      state.music.items.unshift(item);
-      state.music.activeId = id;
-      expandedMusicId = id;
+
+      if (parsed.kind === 'playlist') {
+        const id = 'music-' + Date.now();
+        const title = `YouTube Playlist (${parsed.listId.slice(0, 8)}...)`;
+        const item = { id, title, ...parsed };
+        state.music.items.unshift(item);
+        state.music.activeId = id;
+        expandedMusicId = id;
+        el.inputMusicUrl.value = '';
+        window.OdakMusic.player.currentTitle = '';
+        window.OdakMusic.player.load(item, true);
+        persist();
+        renderMusicList();
+        syncMusicUI();
+        showToast(tr('toastMusicAdded'));
+        return;
+      }
+
+      // Single track -> store inside a local cached playlist (auto-create if first time or '__new__' selected)
+      const targetVal = el.selectTargetPlaylist?.value || '__new__';
+      let targetPl =
+        targetVal !== '__new__'
+          ? state.music.items.find((x) => x.id === targetVal && x.kind === 'local_playlist')
+          : null;
+
+      if (!targetPl) {
+        const localCount = state.music.items.filter((x) => x.kind === 'local_playlist').length;
+        const customName = el.inputNewPlaylistName?.value.trim();
+        targetPl = {
+          id: 'local-pl-' + Date.now(),
+          title: customName || tr('localPlaylistDefaultName', { n: localCount + 1 }),
+          kind: 'local_playlist',
+          tracks: [parsed.videoId],
+          index: 0,
+        };
+        state.music.items.unshift(targetPl);
+        if (el.inputNewPlaylistName) el.inputNewPlaylistName.value = '';
+      } else {
+        if (!Array.isArray(targetPl.tracks)) targetPl.tracks = [];
+        if (!targetPl.tracks.includes(parsed.videoId)) {
+          targetPl.tracks.push(parsed.videoId);
+        }
+      }
+
+      window.OdakMusic.player.fetchVideoMeta(parsed.videoId);
+      state.music.activeId = targetPl.id;
+      expandedMusicId = targetPl.id;
       el.inputMusicUrl.value = '';
       window.OdakMusic.player.currentTitle = '';
-      window.OdakMusic.player.load(item, true);
+      window.OdakMusic.player.load(targetPl, true);
       persist();
       renderMusicList();
+      if (el.selectTargetPlaylist) el.selectTargetPlaylist.value = targetPl.id;
+      if (el.inputNewPlaylistName) el.inputNewPlaylistName.classList.add('hidden');
       syncMusicUI();
-      showToast(tr('toastMusicAdded'));
+      showToast(tr('toastTrackAddedToPlaylist', { name: targetPl.title }));
     });
 
     // Keyboard Shortcuts
@@ -1943,6 +2102,11 @@
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
     await window.OdakBackgrounds.init();
+    migrateSingleTracksToLocalPlaylist();
+    window.OdakBackgrounds.syncAudio(
+      state.audio.enabled && state.bgAudio.enabled,
+      state.bgAudio.volume
+    );
     applyActiveBackground(state.background.activeId);
 
     timerEngine = new window.OdakTimer.TimerEngine(

@@ -131,9 +131,10 @@
       this.activeItem = item;
       this.pendingSource = { item, autoPlay };
       this.consecutiveErrors = 0;
-      if (item.videoId) {
-        this.currentVideoId = item.videoId;
-        this.fetchVideoMeta(item.videoId);
+      const firstVid = item.kind === 'local_playlist' ? item.tracks?.[item.index || 0] : item.videoId;
+      if (firstVid) {
+        this.currentVideoId = firstVid;
+        this.fetchVideoMeta(firstVid);
       }
 
       await this.ensureApi();
@@ -156,6 +157,9 @@
           playerVars.listType = 'playlist';
           playerVars.list = item.listId;
           if (item.index > 0) playerVars.index = item.index;
+        } else if (item.kind === 'local_playlist') {
+          const rest = (item.tracks || []).slice(1);
+          if (rest.length > 0) playerVars.playlist = rest.join(',');
         } else {
           playerVars.playlist = item.videoId;
         }
@@ -163,7 +167,7 @@
         this.player = new window.YT.Player('yt-music-host', {
           height: '180',
           width: '320',
-          videoId: item.videoId || undefined,
+          videoId: firstVid || undefined,
           playerVars,
           events: {
             onReady: () => {
@@ -196,7 +200,10 @@
                 (typeof idx === 'number' && idx >= 0 && this.playlistIds[idx]) ||
                 this.currentVideoId;
               if (failedId) this.unavailableIds.add(failedId);
-              if (this.activeItem?.kind === 'playlist' && this.consecutiveErrors <= 12) {
+              const isList =
+                this.activeItem?.kind === 'playlist' ||
+                this.activeItem?.kind === 'local_playlist';
+              if (isList && this.consecutiveErrors <= 12) {
                 setTimeout(() => {
                   this.player?.nextVideo?.();
                 }, 250);
@@ -216,6 +223,15 @@
             this.player.loadPlaylist(cfg);
           } else {
             this.player.cuePlaylist(cfg);
+          }
+        } else if (item.kind === 'local_playlist') {
+          const tracks = item.tracks || [];
+          if (tracks.length > 0) {
+            if (autoPlay) {
+              this.player.loadPlaylist(tracks, item.index || 0);
+            } else {
+              this.player.cuePlaylist(tracks, item.index || 0);
+            }
           }
         } else {
           if (autoPlay) {
