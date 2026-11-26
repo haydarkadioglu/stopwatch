@@ -192,6 +192,7 @@
       wRain: 'Yağmurlu',
       wSnow: 'Karlı',
       wStorm: 'Fırtınalı',
+      zoneSearchPlaceholder: 'Şehir / bölge ara (örn. Ankara, Londra, Tokyo)...',
       quotes: [
         '“Küçük adımlar, büyük sonuçların sessiz mimarıdır.”',
         '“Odaklandığın şey büyür; dikkatini koru.”',
@@ -379,6 +380,7 @@
       wRain: 'Rainy',
       wSnow: 'Snowy',
       wStorm: 'Stormy',
+      zoneSearchPlaceholder: 'Search city / region (e.g. London, Tokyo, Berlin)...',
       quotes: [
         '“Small steps are the quiet architects of big results.”',
         '“What you focus on grows; guard your attention.”',
@@ -566,6 +568,7 @@
       wRain: 'Regnerisch',
       wSnow: 'Schnee',
       wStorm: 'Gewitter',
+      zoneSearchPlaceholder: 'Stadt / Region suchen (z.B. Berlin, Tokio, Wien)...',
       quotes: [
         '„Kleine Schritte sind die leisen Architekten großer Erfolge.“',
         '„Worauf du dich fokussierst, das wächst.“',
@@ -753,6 +756,7 @@
       wRain: 'Lluvia',
       wSnow: 'Nieve',
       wStorm: 'Tormenta',
+      zoneSearchPlaceholder: 'Buscar ciudad / región (ej. Madrid, Tokio, Lima)...',
       quotes: [
         '“Los pequeños pasos son los arquitectos silenciosos de grandes resultados.”',
         '“Lo que enfocas crece; protege tu atención.”',
@@ -940,6 +944,7 @@
       wRain: 'Дождь',
       wSnow: 'Снег',
       wStorm: 'Гроза',
+      zoneSearchPlaceholder: 'Поиск города / региона (напр. Москва, Берлин)...',
       quotes: [
         '«Маленькие шаги — тихие архитекторы больших результатов.»',
         '«То, на чём вы фокусируетесь, растёт.»',
@@ -1127,6 +1132,7 @@
       wRain: 'ممطر',
       wSnow: 'مثلج',
       wStorm: 'عاصف',
+      zoneSearchPlaceholder: 'ابحث عن مدينة / منطقة (مثل: الرياض، القاهرة)...',
       quotes: [
         '«الخطوات الصغيرة هي المهندس الصامت للنتائج الكبيرة.»',
         '«ما تركز عليه ينمو؛ حافظ على انتباهك.»',
@@ -1314,6 +1320,7 @@
       wRain: '雨',
       wSnow: '雪',
       wStorm: '雷雨',
+      zoneSearchPlaceholder: '都市・地域を検索（例：Tokyo, London）...',
       quotes: [
         '「小さな一歩が、大きな成果を静かに築き上げる。」',
         '「意識を向けたものが育つ。集中を守ろう。」',
@@ -1501,6 +1508,7 @@
       wRain: '비',
       wSnow: '눈',
       wStorm: '뇌우',
+      zoneSearchPlaceholder: '도시 / 지역 검색 (예: Seoul, Tokyo, London)...',
       quotes: [
         '“작은 발걸음이 큰 결과를 조용히 만들어 냅니다.”',
         '“집중하는 것이 자랍니다. 시선을 지켜내세요.”',
@@ -1688,6 +1696,7 @@
       wRain: '下雨',
       wSnow: '下雪',
       wStorm: '雷暴',
+      zoneSearchPlaceholder: '搜索城市 / 地区（如：Beijing, Tokyo, London）...',
       quotes: [
         '“微小的积累，是宏大成果背后沉默的建筑师。”',
         '“你专注的地方会不断生长；守护你的注意力。”',
@@ -1697,6 +1706,19 @@
       ],
     },
   };
+
+  function detectDeviceLanguage() {
+    const supported = new Set(LANGUAGES.map((l) => l.code));
+    const candidates = Array.isArray(navigator.languages) && navigator.languages.length
+      ? navigator.languages
+      : [navigator.language || 'en'];
+    for (const raw of candidates) {
+      if (!raw) continue;
+      const base = String(raw).toLowerCase().split(/[-_]/)[0];
+      if (supported.has(base)) return base;
+    }
+    return 'en';
+  }
 
   function t(lang, key, vars) {
     const dict = TRANSLATIONS[lang] || TRANSLATIONS.tr;
@@ -1715,6 +1737,7 @@
 
   global.OdakI18n = {
     LANGUAGES,
+    detectDeviceLanguage,
     t,
     getQuotes,
   };

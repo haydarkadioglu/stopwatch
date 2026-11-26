@@ -1,26 +1,57 @@
 (function (global) {
   'use strict';
 
-  const TIMEZONES = [
-    { id: 'auto', label: 'Auto (Local)' },
-    { id: 'Europe/Istanbul', label: 'İstanbul (TRT)' },
-    { id: 'Europe/London', label: 'London (GMT/BST)' },
-    { id: 'Europe/Berlin', label: 'Berlin (CET)' },
-    { id: 'Europe/Paris', label: 'Paris (CET)' },
-    { id: 'Europe/Moscow', label: 'Moscow (MSK)' },
-    { id: 'Asia/Dubai', label: 'Dubai (GST)' },
-    { id: 'Asia/Riyadh', label: 'Riyadh (AST)' },
-    { id: 'America/New_York', label: 'New York (EST)' },
-    { id: 'America/Chicago', label: 'Chicago (CST)' },
-    { id: 'America/Los_Angeles', label: 'Los Angeles (PST)' },
-    { id: 'America/Sao_Paulo', label: 'São Paulo (BRT)' },
-    { id: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-    { id: 'Asia/Seoul', label: 'Seoul (KST)' },
-    { id: 'Asia/Shanghai', label: 'Shanghai / Beijing (CST)' },
-    { id: 'Asia/Singapore', label: 'Singapore (SGT)' },
-    { id: 'Australia/Sydney', label: 'Sydney (AEST)' },
-    { id: 'UTC', label: 'UTC' },
+  const FALLBACK_ZONES = [
+    'Europe/Istanbul', 'Europe/London', 'Europe/Berlin', 'Europe/Paris', 'Europe/Madrid',
+    'Europe/Rome', 'Europe/Amsterdam', 'Europe/Vienna', 'Europe/Zurich', 'Europe/Athens',
+    'Europe/Moscow', 'Europe/Warsaw', 'Europe/Stockholm', 'Europe/Bucharest', 'Europe/Kiev',
+    'Asia/Baku', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Qatar', 'Asia/Jerusalem', 'Asia/Tehran',
+    'Asia/Karachi', 'Asia/Kolkata', 'Asia/Bangkok', 'Asia/Jakarta', 'Asia/Singapore',
+    'Asia/Hong_Kong', 'Asia/Shanghai', 'Asia/Seoul', 'Asia/Tokyo', 'Australia/Sydney',
+    'Australia/Melbourne', 'Pacific/Auckland', 'Africa/Cairo', 'Africa/Johannesburg',
+    'Africa/Casablanca', 'America/New_York', 'America/Toronto', 'America/Chicago',
+    'America/Denver', 'America/Los_Angeles', 'America/Mexico_City', 'America/Sao_Paulo',
+    'America/Buenos_Aires', 'UTC',
   ];
+
+  function getOffsetLabel(timeZone) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        timeZoneName: 'shortOffset',
+      }).formatToParts(new Date());
+      const tzPart = parts.find((p) => p.type === 'timeZoneName');
+      return tzPart ? tzPart.value.replace('GMT', 'UTC') : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function buildTimeZones() {
+    let rawList = [];
+    try {
+      if (typeof Intl.supportedValuesOf === 'function') {
+        rawList = Intl.supportedValuesOf('timeZone');
+      }
+    } catch (_) {}
+    if (!rawList || rawList.length === 0) {
+      rawList = FALLBACK_ZONES;
+    }
+    const items = rawList.map((id) => {
+      const parts = id.split('/');
+      const city = parts[parts.length - 1].replace(/_/g, ' ');
+      const region = parts.length > 1 ? parts[0] : '';
+      const offset = getOffsetLabel(id);
+      const label = region
+        ? `${city} — ${region} (${offset || id})`
+        : `${city} (${offset || id})`;
+      return { id, city, region, label };
+    });
+    items.sort((a, b) => a.city.localeCompare(b.city));
+    return [{ id: 'auto', city: 'Auto', region: '', label: 'Auto (Local)' }, ...items];
+  }
+
+  const TIMEZONES = buildTimeZones();
 
   const LOCALE_MAP = {
     tr: 'tr-TR',
@@ -54,7 +85,7 @@
       return autoLabel ? `${city}` : city;
     }
     const found = TIMEZONES.find((z) => z.id === tzId);
-    if (found) return found.label.split(' (')[0];
+    if (found && found.city) return found.city;
     return tzId.split('/').pop().replace(/_/g, ' ');
   }
 

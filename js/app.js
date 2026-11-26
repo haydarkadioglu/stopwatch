@@ -10,7 +10,7 @@
   ];
 
   const DEFAULT_STATE = {
-    language: 'tr',
+    language: window.OdakI18n.detectDeviceLanguage(),
     timer: {
       mode: 'stopwatch',
       running: false,
@@ -198,9 +198,11 @@
     toggleQuote: document.getElementById('toggle-quote'),
     toggleZen: document.getElementById('toggle-zen'),
     toggleKeepAwake: document.getElementById('toggle-keep-awake'),
+    searchPrimaryZone: document.getElementById('search-primary-zone'),
     selectPrimaryZone: document.getElementById('select-primary-zone'),
     toggleDualZone: document.getElementById('toggle-dual-zone'),
     secondaryZoneWrap: document.getElementById('secondary-zone-wrap'),
+    searchSecondaryZone: document.getElementById('search-secondary-zone'),
     selectSecondaryZone: document.getElementById('select-secondary-zone'),
     toggleShowDate: document.getElementById('toggle-show-date'),
     dateFormatWrap: document.getElementById('date-format-wrap'),
@@ -295,29 +297,44 @@
     if (!window.OdakWorld) return;
     const zones = window.OdakWorld.TIMEZONES;
     const localCity = window.OdakWorld.getZoneShortName('auto');
+    const q1 = (el.searchPrimaryZone?.value || '').trim().toLowerCase();
+    const q2 = (el.searchSecondaryZone?.value || '').trim().toLowerCase();
 
     if (el.selectPrimaryZone) {
+      const current1 = state.clock.primaryZone || 'auto';
       el.selectPrimaryZone.innerHTML = '';
-      zones.forEach((z) => {
-        const opt = document.createElement('option');
-        opt.value = z.id;
-        opt.textContent = z.id === 'auto' ? `${tr('localZoneAuto')} · ${localCity}` : z.label;
-        el.selectPrimaryZone.appendChild(opt);
-      });
-      el.selectPrimaryZone.value = state.clock.primaryZone || 'auto';
+      zones
+        .filter((z) => {
+          if (z.id === current1 || z.id === 'auto') return true;
+          if (!q1) return true;
+          return z.label.toLowerCase().includes(q1) || z.id.toLowerCase().includes(q1);
+        })
+        .forEach((z) => {
+          const opt = document.createElement('option');
+          opt.value = z.id;
+          opt.textContent = z.id === 'auto' ? `${tr('localZoneAuto')} · ${localCity}` : z.label;
+          el.selectPrimaryZone.appendChild(opt);
+        });
+      el.selectPrimaryZone.value = current1;
     }
 
     if (el.selectSecondaryZone) {
+      const current2 = state.clock.secondaryZone || 'America/New_York';
       el.selectSecondaryZone.innerHTML = '';
       zones
-        .filter((z) => z.id !== 'auto')
+        .filter((z) => {
+          if (z.id === 'auto') return false;
+          if (z.id === current2) return true;
+          if (!q2) return true;
+          return z.label.toLowerCase().includes(q2) || z.id.toLowerCase().includes(q2);
+        })
         .forEach((z) => {
           const opt = document.createElement('option');
           opt.value = z.id;
           opt.textContent = z.label;
           el.selectSecondaryZone.appendChild(opt);
         });
-      el.selectSecondaryZone.value = state.clock.secondaryZone || 'America/New_York';
+      el.selectSecondaryZone.value = current2;
     }
   }
 
@@ -830,6 +847,7 @@
         el.analogSubreadout.textContent = `${tp.main}${tp.suffix}`;
       }
       if (el.handSecond && el.handMinute && el.handHour) {
+        el.handSecond.classList.toggle('hidden', c.showSeconds === false);
         const msFrac = now.getMilliseconds() / 1000;
         const secDeg = ((tp.seconds + msFrac) % 60) * 6;
         const minDeg = ((tp.minutes + tp.seconds / 60) % 60) * 6;
@@ -890,6 +908,7 @@
       el.analogSubreadout.textContent = parts.main;
     }
     if (el.handSecond && el.handMinute && el.handHour) {
+      el.handSecond.classList.remove('hidden');
       const totalSec = Math.max(0, currentMs) / 1000;
       const secDeg = (totalSec % 60) * 6;
       const minDeg = ((totalSec / 60) % 60) * 6;
@@ -1398,6 +1417,8 @@
     });
 
     // Clock & World Time Controls
+    el.searchPrimaryZone?.addEventListener('input', () => populateTimezoneSelects());
+    el.searchSecondaryZone?.addEventListener('input', () => populateTimezoneSelects());
     el.selectPrimaryZone?.addEventListener('change', (e) => {
       state.clock.primaryZone = e.target.value;
       persist();
