@@ -126,16 +126,48 @@
       return placeholder;
     }
 
+    async fetchPlaylistMeta(listId) {
+      if (!listId) return null;
+      const cacheKey = `pl:${listId}`;
+      if (this.metaCache.has(cacheKey)) return this.metaCache.get(cacheKey);
+      try {
+        const res = await fetch(
+          `https://www.youtube.com/oembed?url=${encodeURIComponent(
+            `https://www.youtube.com/playlist?list=${listId}`
+          )}&format=json`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const meta = {
+            listId,
+            title: data.title || '',
+            author: data.author_name || '',
+            thumb: data.thumbnail_url || '',
+          };
+          this.metaCache.set(cacheKey, meta);
+          return meta;
+        }
+      } catch (_) {}
+      return null;
+    }
+
     async load(item, autoPlay = false) {
       if (!item) return;
       this.activeItem = item;
       this.pendingSource = { item, autoPlay };
       this.consecutiveErrors = 0;
+      this.isPlaying = false;
+      this.currentTitle = '';
+      this.currentAuthor = '';
+      this.currentVideoId = '';
+      this.playlistIds = [];
+      this.playlistIndex = -1;
       const firstVid = item.kind === 'local_playlist' ? item.tracks?.[item.index || 0] : item.videoId;
       if (firstVid) {
         this.currentVideoId = firstVid;
         this.fetchVideoMeta(firstVid);
       }
+      this.onStateChange?.();
 
       await this.ensureApi();
       const container = document.getElementById('yt-music-host');

@@ -81,12 +81,12 @@
       items: [
         {
           id: 'music-sample-1',
-          title: 'Örnek Çalışma Listesi (YouTube Music)',
+          title: 'Peaceful',
           kind: 'playlist',
           listId: 'PLqtMUv_N5txoOTx2_CqYZxwJmo6FWJAYT',
           videoId: 'W2YyDarMiR4',
           index: 1,
-          url: 'https://www.youtube.com/watch?v=W2YyDarMiR4&list=PLqtMUv_N5txoOTx2_CqYZxwJmo6FWJAYT&index=2',
+          url: 'https://www.youtube.com/playlist?list=PLqtMUv_N5txoOTx2_CqYZxwJmo6FWJAYT',
         },
       ],
     },
@@ -271,6 +271,7 @@
     valMusicVolume: document.getElementById('val-music-volume'),
     inputMusicUrl: document.getElementById('input-music-url'),
     btnAddMusic: document.getElementById('btn-add-music'),
+    localPlTargetWrap: document.getElementById('local-pl-target-wrap'),
     selectTargetPlaylist: document.getElementById('select-target-playlist'),
     inputNewPlaylistName: document.getElementById('input-new-playlist-name'),
     musicListCount: document.getElementById('music-list-count'),
@@ -531,8 +532,7 @@
       el.musicWidget.classList.toggle('playing', p.isPlaying);
     }
     if (el.mwTitle) {
-      const displayTitle = activeItem?.id === 'music-sample-1' ? tr('musicSampleTitle') : activeItem?.title;
-      el.mwTitle.textContent = p.currentTitle || displayTitle || 'YouTube';
+      el.mwTitle.textContent = p.currentTitle || activeItem?.title || 'YouTube';
     }
     if (el.mwSub) {
       const subParts = [];
@@ -578,7 +578,7 @@
     }
 
     // Now Playing Card in Music Tab
-    const activeTitle = activeItem?.id === 'music-sample-1' ? tr('musicSampleTitle') : activeItem?.title;
+    const activeTitle = activeItem?.title || '';
     if (el.npTitle) {
       el.npTitle.textContent = p.currentTitle || activeTitle || tr('nothingPlaying');
     }
@@ -795,7 +795,7 @@
           : item.kind === 'playlist'
           ? tr('musicTypePlaylist')
           : tr('musicTypeSingle');
-      const itemTitle = item.id === 'music-sample-1' ? tr('musicSampleTitle') : item.title;
+      const itemTitle = item.title || 'YouTube Playlist';
       const localCount = item.kind === 'local_playlist' ? (item.tracks || []).length : 0;
       const trackCountText =
         item.kind === 'local_playlist'
@@ -1832,13 +1832,25 @@
       applyAudio();
     });
 
+    el.inputMusicUrl?.addEventListener('input', () => {
+      const raw = el.inputMusicUrl.value.trim();
+      const parsed = raw ? window.OdakMusic.parseYouTubeMusicUrl(raw) : null;
+      const showLocalTarget = Boolean(parsed && parsed.kind === 'video');
+      if (el.localPlTargetWrap) {
+        el.localPlTargetWrap.classList.toggle('hidden', !showLocalTarget);
+      }
+      if (showLocalTarget && el.inputNewPlaylistName && el.selectTargetPlaylist) {
+        el.inputNewPlaylistName.classList.toggle('hidden', el.selectTargetPlaylist.value !== '__new__');
+      }
+    });
+
     el.selectTargetPlaylist?.addEventListener('change', () => {
       if (el.inputNewPlaylistName) {
         el.inputNewPlaylistName.classList.toggle('hidden', el.selectTargetPlaylist.value !== '__new__');
       }
     });
 
-    el.btnAddMusic?.addEventListener('click', () => {
+    el.btnAddMusic?.addEventListener('click', async () => {
       const raw = el.inputMusicUrl.value.trim();
       if (!raw) return;
       const parsed = window.OdakMusic.parseYouTubeMusicUrl(raw);
@@ -1848,14 +1860,32 @@
       }
 
       if (parsed.kind === 'playlist') {
+        // Playlist link -> save directly at top level with its real YouTube playlist name (never inside another list)
+        const existing = state.music.items.find(
+          (x) => x.kind === 'playlist' && x.listId === parsed.listId
+        );
+        if (existing) {
+          state.music.activeId = existing.id;
+          expandedMusicId = existing.id;
+          el.inputMusicUrl.value = '';
+          el.localPlTargetWrap?.classList.add('hidden');
+          window.OdakMusic.player.load(existing, true);
+          persist();
+          renderMusicList();
+          syncMusicUI();
+          showToast(tr('toastMusicAdded'));
+          return;
+        }
+
         const id = 'music-' + Date.now();
-        const title = `YouTube Playlist (${parsed.listId.slice(0, 8)}...)`;
+        const plMeta = await window.OdakMusic.player.fetchPlaylistMeta(parsed.listId);
+        const title = plMeta?.title || 'YouTube Playlist';
         const item = { id, title, ...parsed };
         state.music.items.unshift(item);
         state.music.activeId = id;
         expandedMusicId = id;
         el.inputMusicUrl.value = '';
-        window.OdakMusic.player.currentTitle = '';
+        el.localPlTargetWrap?.classList.add('hidden');
         window.OdakMusic.player.load(item, true);
         persist();
         renderMusicList();
@@ -1894,7 +1924,7 @@
       state.music.activeId = targetPl.id;
       expandedMusicId = targetPl.id;
       el.inputMusicUrl.value = '';
-      window.OdakMusic.player.currentTitle = '';
+      el.localPlTargetWrap?.classList.add('hidden');
       window.OdakMusic.player.load(targetPl, true);
       persist();
       renderMusicList();
@@ -2096,6 +2126,28 @@
     }
   }
 
+  async function resolvePlaylistTitles() {
+    let changed = false;
+    for (const item of state.music.items) {
+      if (item.kind !== 'playlist' || !item.listId) continue;
+      const isPlaceholder =
+        !item.title ||
+        item.title.startsWith('YouTube Playlist') ||
+        item.title.startsWith('Örnek Çalışma Listesi');
+      if (!isPlaceholder) continue;
+      const meta = await window.OdakMusic.player.fetchPlaylistMeta(item.listId);
+      if (meta?.title) {
+        item.title = meta.title;
+        changed = true;
+      }
+    }
+    if (changed) {
+      persist();
+      renderMusicList();
+      syncMusicUI();
+    }
+  }
+
   async function init() {
     initAnalogClockTicks();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
@@ -2134,6 +2186,7 @@
     }
     renderMusicList();
     syncMusicUI();
+    resolvePlaylistTitles();
     bindEvents();
     timerEngine.resumeIfRunning();
     resetIdleTimer();
