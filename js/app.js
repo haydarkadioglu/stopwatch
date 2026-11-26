@@ -346,6 +346,12 @@
         div.className = 'bg-thumb-gradient';
         div.style.background = bg.thumbGradient;
         tile.appendChild(div);
+      } else if (bg.kind === 'youtube' && bg.youtubeId) {
+        const img = document.createElement('img');
+        img.src = `https://img.youtube.com/vi/${bg.youtubeId}/hqdefault.jpg`;
+        img.alt = bg.name;
+        img.loading = 'lazy';
+        tile.appendChild(img);
       } else if (bg.kind === 'video') {
         const vid = document.createElement('video');
         vid.src = bg.url;

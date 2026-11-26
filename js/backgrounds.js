@@ -55,11 +55,36 @@
     },
   ];
 
+  function extractYouTubeId(url) {
+    try {
+      const u = new URL(url);
+      const host = u.hostname.replace(/^www\./, '');
+      if (host === 'youtu.be') {
+        const id = u.pathname.split('/').filter(Boolean)[0];
+        return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+      }
+      if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
+        if (u.searchParams.get('v')) {
+          const id = u.searchParams.get('v');
+          return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+        }
+        const parts = u.pathname.split('/').filter(Boolean);
+        if (parts.length >= 2 && ['embed', 'shorts', 'live', 'v'].includes(parts[0])) {
+          return /^[a-zA-Z0-9_-]{11}$/.test(parts[1]) ? parts[1] : null;
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
   class BackgroundManager {
     constructor() {
       this.canvasEl = document.getElementById('bg-canvas');
       this.imgEl = document.getElementById('bg-image');
       this.videoEl = document.getElementById('bg-video');
+      this.youtubeEl = document.getElementById('bg-youtube');
       this.customItems = [];
       this.objectUrls = new Map();
       this.animFrameId = null;
@@ -75,8 +100,9 @@
         return {
           id: item.id,
           name: item.name,
-          kind: item.kind, // 'image' | 'video'
+          kind: item.kind, // 'image' | 'video' | 'youtube'
           url: objectUrl,
+          youtubeId: item.youtubeId || null,
           isCustom: true,
           size: item.size || 0,
         };
@@ -127,14 +153,19 @@
     async addUrl(url) {
       const clean = url.trim();
       if (!clean) return null;
+      const ytId = extractYouTubeId(clean);
       const isVideo = /\.(mp4|webm|ogg)(\?.*)?$/i.test(clean);
       const id = 'url-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-      const name = clean.split('/').pop().split('?')[0].slice(0, 24) || 'Web Medyası';
+      const kind = ytId ? 'youtube' : isVideo ? 'video' : 'image';
+      const name = ytId
+        ? `YouTube · ${ytId}`
+        : clean.split('/').pop().split('?')[0].slice(0, 24) || 'Web Medyası';
       const record = {
         id,
         name,
-        kind: isVideo ? 'video' : 'image',
+        kind,
         url: clean,
+        youtubeId: ytId,
         size: 0,
         createdAt: Date.now(),
       };
@@ -160,10 +191,17 @@
       this.imgEl.classList.add('hidden');
       this.videoEl.classList.add('hidden');
       this.videoEl.pause();
+      if (this.youtubeEl) {
+        this.youtubeEl.classList.add('hidden');
+        this.youtubeEl.src = '';
+      }
 
       if (bg.kind === 'canvas') {
         this.canvasEl.classList.remove('hidden');
         this.startCanvas(bg.preset);
+      } else if (bg.kind === 'youtube' && bg.youtubeId && this.youtubeEl) {
+        this.youtubeEl.src = `https://www.youtube.com/embed/${bg.youtubeId}?autoplay=1&mute=1&loop=1&playlist=${bg.youtubeId}&controls=0&rel=0&modestbranding=1&playsinline=1`;
+        this.youtubeEl.classList.remove('hidden');
       } else if (bg.kind === 'video') {
         this.videoEl.src = bg.url;
         this.videoEl.classList.remove('hidden');
