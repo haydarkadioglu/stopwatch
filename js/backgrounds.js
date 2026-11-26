@@ -200,12 +200,16 @@
         this.canvasEl.classList.remove('hidden');
         this.startCanvas(bg.preset);
       } else if (bg.kind === 'youtube' && bg.youtubeId && this.youtubeEl) {
-        this.youtubeEl.src = `https://www.youtube.com/embed/${bg.youtubeId}?autoplay=1&mute=1&loop=1&playlist=${bg.youtubeId}&controls=0&rel=0&modestbranding=1&playsinline=1`;
+        this.youtubeEl.src = `https://www.youtube.com/embed/${bg.youtubeId}?autoplay=1&mute=0&loop=1&playlist=${bg.youtubeId}&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`;
         this.youtubeEl.classList.remove('hidden');
       } else if (bg.kind === 'video') {
         this.videoEl.src = bg.url;
         this.videoEl.classList.remove('hidden');
-        this.videoEl.play().catch(() => {});
+        this.videoEl.play().catch(() => {
+          // Autoplay with sound may be blocked before user gesture; retry muted
+          this.videoEl.muted = true;
+          this.videoEl.play().catch(() => {});
+        });
       } else {
         this.imgEl.onerror = () => {
           // Fallback to aurora canvas if offline and external image fails
@@ -217,6 +221,24 @@
         this.imgEl.classList.remove('hidden');
       }
       return bg;
+    }
+
+    syncAudio(enabled, volumePct) {
+      const vol = Math.max(0, Math.min(1, volumePct / 100));
+      if (this.videoEl) {
+        this.videoEl.muted = !enabled;
+        this.videoEl.volume = vol;
+      }
+      if (this.youtubeEl && !this.youtubeEl.classList.contains('hidden') && this.youtubeEl.contentWindow) {
+        const post = (func, args = []) => {
+          this.youtubeEl.contentWindow.postMessage(
+            JSON.stringify({ event: 'command', func, args }),
+            '*'
+          );
+        };
+        post(enabled ? 'unMute' : 'mute');
+        post('setVolume', [Math.round(volumePct)]);
+      }
     }
 
     stopCanvas() {

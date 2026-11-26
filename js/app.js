@@ -252,6 +252,7 @@
       alarmPreset: a.alarmPreset,
       ambientMode: a.enabled ? a.ambientMode : 'none',
     });
+    window.OdakBackgrounds.syncAudio(a.enabled, a.volume);
 
     el.btnMute.classList.toggle('muted', !a.enabled);
     el.iconSoundOn.classList.toggle('hidden', !a.enabled);
@@ -421,6 +422,7 @@
       tile.addEventListener('click', () => {
         state.background.activeId = bg.id;
         window.OdakBackgrounds.apply(bg.id);
+        window.OdakBackgrounds.syncAudio(state.audio.enabled, state.audio.volume);
         persist();
         renderGallery();
       });
@@ -443,6 +445,7 @@
     const nextId = list[(idx + 1) % list.length];
     state.background.activeId = nextId;
     const bg = window.OdakBackgrounds.apply(nextId);
+    window.OdakBackgrounds.syncAudio(state.audio.enabled, state.audio.volume);
     persist();
     renderGallery();
     showToast(tr('toastBgChanged', { name: bg.name }));
@@ -821,6 +824,7 @@
   async function init() {
     await window.OdakBackgrounds.init();
     window.OdakBackgrounds.apply(state.background.activeId);
+    window.OdakBackgrounds.syncAudio(state.audio.enabled, state.audio.volume);
 
     timerEngine = new window.OdakTimer.TimerEngine(
       state,
