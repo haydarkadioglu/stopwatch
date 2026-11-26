@@ -13,6 +13,7 @@
       if (!isYT) return null;
 
       const listId = u.searchParams.get('list');
+      const indexParam = Number(u.searchParams.get('index'));
       let videoId = u.searchParams.get('v');
       if (!videoId && host === 'youtu.be') {
         videoId = u.pathname.split('/').filter(Boolean)[0] || null;
@@ -28,7 +29,8 @@
         return {
           kind: 'playlist',
           listId,
-          videoId: videoId || null,
+          videoId: videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId) ? videoId : null,
+          index: Number.isFinite(indexParam) && indexParam > 0 ? indexParam - 1 : 0,
           url: rawUrl.trim(),
         };
       }
@@ -37,6 +39,7 @@
           kind: 'video',
           videoId,
           listId: null,
+          index: 0,
           url: rawUrl.trim(),
         };
       }
@@ -52,11 +55,17 @@
       this.apiReady = false;
       this.apiLoading = false;
       this.pendingSource = null;
+      this.activeItem = null;
       this.isPlaying = false;
       this.volume = 65;
       this.muted = false;
       this.loop = true;
       this.currentTitle = '';
+      this.currentAuthor = '';
+      this.currentVideoId = '';
+      this.playlistIndex = -1;
+      this.playlistLength = 0;
+      this.consecutiveErrors = 0;
       this.onStateChange = null;
     }
 
@@ -85,7 +94,9 @@
 
     async load(item, autoPlay = false) {
       if (!item) return;
+      this.activeItem = item;
       this.pendingSource = { item, autoPlay };
+      this.consecutiveErrors = 0;
       await this.ensureApi();
 
       const container = document.getElementById('yt-music-host');
@@ -97,49 +108,68 @@
           controls: 0,
           rel: 0,
           playsinline: 1,
+          enablejsapi: 1,
+          origin: window.location.origin,
           loop: this.loop ? 1 : 0,
         };
         if (item.kind === 'playlist') {
           playerVars.listType = 'playlist';
           playerVars.list = item.listId;
+          if (item.index > 0) playerVars.index = item.index;
         } else {
           playerVars.playlist = item.videoId;
         }
 
+        // YouTube throttles/blocks 1x1 players; keep a 240x135 visually hidden player
         this.player = new window.YT.Player('yt-music-host', {
-          height: '1',
-          width: '1',
-          videoId: item.kind === 'video' ? item.videoId : undefined,
+          height: '135',
+          width: '240',
+          videoId: item.videoId || undefined,
           playerVars,
           events: {
             onReady: () => {
               this.applyAudio();
-              if (this.player.setLoop) this.player.setLoop(this.loop);
+              this.player.setLoop?.(this.loop);
               if (this.pendingSource?.autoPlay) {
-                this.player.playVideo();
+                this.player.playVideo?.();
               }
-              this.syncTitle();
+              this.syncMeta();
             },
             onStateChange: (e) => {
-              this.isPlaying = e.data === window.YT.PlayerState.PLAYING;
-              // If single video ended and loop is on, replay it
-              if (e.data === window.YT.PlayerState.ENDED && this.loop) {
-                if (item.kind === 'video') {
-                  this.player.seekTo(0);
-                  this.player.playVideo();
-                }
+              const YTState = window.YT.PlayerState;
+              this.isPlaying = e.data === YTState.PLAYING;
+              if (e.data === YTState.PLAYING) {
+                this.consecutiveErrors = 0;
               }
-              this.syncTitle();
+              if (e.data === YTState.ENDED && this.loop && this.activeItem?.kind === 'video') {
+                this.player.seekTo(0);
+                this.player.playVideo();
+              }
+              this.syncMeta();
               this.onStateChange?.();
+            },
+            onError: () => {
+              // Auto-skip unavailable, private, or embed-blocked videos in playlists
+              this.consecutiveErrors += 1;
+              if (this.activeItem?.kind === 'playlist' && this.consecutiveErrors <= 10) {
+                setTimeout(() => {
+                  this.player?.nextVideo?.();
+                }, 250);
+              }
             },
           },
         });
       } else {
         if (item.kind === 'playlist') {
+          const cfg = {
+            list: item.listId,
+            listType: 'playlist',
+            index: item.index || 0,
+          };
           if (autoPlay) {
-            this.player.loadPlaylist({ list: item.listId, listType: 'playlist' });
+            this.player.loadPlaylist(cfg);
           } else {
-            this.player.cuePlaylist({ list: item.listId, listType: 'playlist' });
+            this.player.cuePlaylist(cfg);
           }
         } else {
           if (autoPlay) {
@@ -148,18 +178,29 @@
             this.player.cueVideoById(item.videoId);
           }
         }
-        if (this.player.setLoop) this.player.setLoop(this.loop);
+        this.player.setLoop?.(this.loop);
         this.applyAudio();
+        setTimeout(() => this.syncMeta(), 400);
       }
     }
 
-    syncTitle() {
+    syncMeta() {
       try {
         const data = this.player?.getVideoData?.();
-        if (data?.title) {
-          this.currentTitle = data.title;
-          this.onStateChange?.();
+        if (data) {
+          if (data.title) this.currentTitle = data.title;
+          if (data.author) this.currentAuthor = data.author;
+          if (data.video_id) this.currentVideoId = data.video_id;
         }
+        const list = this.player?.getPlaylist?.();
+        if (Array.isArray(list)) {
+          this.playlistLength = list.length;
+          this.playlistIndex = this.player?.getPlaylistIndex?.() ?? -1;
+        } else {
+          this.playlistLength = 0;
+          this.playlistIndex = -1;
+        }
+        this.onStateChange?.();
       } catch (_) {}
     }
 
@@ -173,10 +214,12 @@
     }
 
     next() {
+      this.consecutiveErrors = 0;
       this.player?.nextVideo?.();
     }
 
     prev() {
+      this.consecutiveErrors = 0;
       this.player?.previousVideo?.();
     }
 

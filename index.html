@@ -16,7 +16,7 @@
     href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="stylesheet" href="styles.css?v=9" />
 </head>
 <body class="font-outfit card-glass">
   <!-- Background Layers -->
@@ -254,16 +254,53 @@
       </section>
     </main>
 
-    <!-- Optional On-Screen Music Widget -->
+    <!-- Optional On-Screen Music Widget (Dynamic Pill, expands on hover) -->
     <div id="music-widget" class="music-widget hidden fade-on-idle" aria-label="Müzik Çalar">
-      <button id="mw-prev" class="mw-btn" title="Önceki Parça">⏮</button>
-      <button id="mw-play" class="mw-btn mw-play-btn" title="Oynat / Duraklat">▶</button>
-      <button id="mw-next" class="mw-btn" title="Sonraki Parça">⏭</button>
+      <div class="mw-art-wrap" id="mw-art-wrap">
+        <img id="mw-thumb" class="mw-thumb hidden" alt="" />
+        <div id="mw-eq" class="mw-eq" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <button id="mw-prev" class="mw-btn mw-extra" title="Önceki">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+      </button>
+
+      <button id="mw-play" class="mw-btn mw-play-btn" title="Oynat / Duraklat">
+        <svg id="mw-icon-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg id="mw-icon-pause" class="hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+      </button>
+
+      <button id="mw-next" class="mw-btn mw-extra" title="Sonraki">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      </button>
+
       <div class="mw-info">
         <span id="mw-title" class="mw-title">Çalışma Listesi</span>
+        <span id="mw-sub" class="mw-sub hidden"></span>
       </div>
-      <button id="mw-loop" class="mw-btn active" title="Tekrarla">🔁</button>
-      <button id="mw-mute" class="mw-btn" title="Müziği Sustur / Aç">🎵</button>
+
+      <button id="mw-loop" class="mw-btn mw-extra active" title="Tekrarla">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="17 1 21 5 17 9"></polyline>
+          <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+          <polyline points="7 23 3 19 7 15"></polyline>
+          <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+        </svg>
+      </button>
+
+      <button id="mw-mute" class="mw-btn mw-extra" title="Müziği Sustur / Aç">
+        <svg id="mw-icon-vol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+        <svg id="mw-icon-muted" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <line x1="22" y1="9" x2="16" y2="15"></line>
+          <line x1="16" y1="9" x2="22" y2="15"></line>
+        </svg>
+      </button>
     </div>
 
     <!-- Bottom Status / Quick Info -->
@@ -498,10 +535,21 @@
 
         <div class="control-group">
           <div class="music-player-bar">
-            <button id="drawer-music-prev" class="small-btn" title="Önceki">⏮</button>
+            <button id="drawer-music-prev" class="small-btn icon-sm-btn" title="Önceki">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+            </button>
             <button id="drawer-music-play" class="small-btn accent-small-btn" data-i18n="musicPlay">Oynat</button>
-            <button id="drawer-music-next" class="small-btn" title="Sonraki">⏭</button>
-            <button id="drawer-music-loop" class="small-btn active" title="Tekrar">🔁</button>
+            <button id="drawer-music-next" class="small-btn icon-sm-btn" title="Sonraki">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+            </button>
+            <button id="drawer-music-loop" class="small-btn icon-sm-btn active" title="Tekrar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="17 1 21 5 17 9"></polyline>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <polyline points="7 23 3 19 7 15"></polyline>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -626,12 +674,12 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <!-- Scripts (ordered so file:// and http:// both work seamlessly) -->
-  <script src="js/db.js?v=8"></script>
-  <script src="js/i18n.js?v=8"></script>
-  <script src="js/audio.js?v=8"></script>
-  <script src="js/music.js?v=8"></script>
-  <script src="js/backgrounds.js?v=8"></script>
-  <script src="js/timer.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <script src="js/db.js?v=9"></script>
+  <script src="js/i18n.js?v=9"></script>
+  <script src="js/audio.js?v=9"></script>
+  <script src="js/music.js?v=9"></script>
+  <script src="js/backgrounds.js?v=9"></script>
+  <script src="js/timer.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>

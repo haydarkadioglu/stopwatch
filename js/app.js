@@ -65,8 +65,9 @@
           title: 'Örnek Çalışma Listesi (YouTube Music)',
           kind: 'playlist',
           listId: 'PLqtMUv_N5txoOTx2_CqYZxwJmo6FWJAYT',
-          videoId: null,
-          url: 'https://music.youtube.com/playlist?list=PLqtMUv_N5txoOTx2_CqYZxwJmo6FWJAYT&si=H-CUysDf5ykHN8RL&drli=1',
+          videoId: 'W2YyDarMiR4',
+          index: 1,
+          url: 'https://www.youtube.com/watch?v=W2YyDarMiR4&list=PLqtMUv_N5txoOTx2_CqYZxwJmo6FWJAYT&index=2',
         },
       ],
     },
@@ -172,12 +173,19 @@
     sliderBgVolume: document.getElementById('slider-bg-volume'),
     valBgVolume: document.getElementById('val-bg-volume'),
     musicWidget: document.getElementById('music-widget'),
+    mwThumb: document.getElementById('mw-thumb'),
+    mwEq: document.getElementById('mw-eq'),
     mwPrev: document.getElementById('mw-prev'),
     mwPlay: document.getElementById('mw-play'),
+    mwIconPlay: document.getElementById('mw-icon-play'),
+    mwIconPause: document.getElementById('mw-icon-pause'),
     mwNext: document.getElementById('mw-next'),
     mwTitle: document.getElementById('mw-title'),
+    mwSub: document.getElementById('mw-sub'),
     mwLoop: document.getElementById('mw-loop'),
     mwMute: document.getElementById('mw-mute'),
+    mwIconVol: document.getElementById('mw-icon-vol'),
+    mwIconMuted: document.getElementById('mw-icon-muted'),
     toggleMusicWidget: document.getElementById('toggle-music-widget'),
     drawerMusicPrev: document.getElementById('drawer-music-prev'),
     drawerMusicPlay: document.getElementById('drawer-music-play'),
@@ -371,20 +379,48 @@
 
     if (el.musicWidget) {
       el.musicWidget.classList.toggle('hidden', !m.showWidget || !hasItems);
+      el.musicWidget.classList.toggle('playing', p.isPlaying);
     }
     if (el.mwTitle) {
       const displayTitle = activeItem?.id === 'music-sample-1' ? tr('musicSampleTitle') : activeItem?.title;
-      el.mwTitle.textContent = p.currentTitle || displayTitle || 'YouTube Music';
+      el.mwTitle.textContent = p.currentTitle || displayTitle || 'YouTube';
     }
-    if (el.mwPlay) {
-      el.mwPlay.textContent = p.isPlaying ? '⏸' : '▶';
+    if (el.mwSub) {
+      const subParts = [];
+      if (p.currentAuthor) subParts.push(p.currentAuthor);
+      if (p.playlistLength > 0 && p.playlistIndex >= 0) {
+        subParts.push(`${p.playlistIndex + 1} / ${p.playlistLength}`);
+      }
+      const subText = subParts.join(' · ');
+      el.mwSub.textContent = subText;
+      el.mwSub.classList.toggle('hidden', !subText);
+    }
+    if (el.mwThumb && el.mwEq) {
+      const vidId = p.currentVideoId || activeItem?.videoId;
+      if (vidId) {
+        el.mwThumb.src = `https://img.youtube.com/vi/${vidId}/default.jpg`;
+        el.mwThumb.classList.remove('hidden');
+        el.mwEq.classList.add('hidden');
+      } else {
+        el.mwThumb.classList.add('hidden');
+        el.mwEq.classList.remove('hidden');
+      }
+    }
+    if (el.mwIconPlay && el.mwIconPause) {
+      el.mwIconPlay.classList.toggle('hidden', p.isPlaying);
+      el.mwIconPause.classList.toggle('hidden', !p.isPlaying);
     }
     if (el.drawerMusicPlay) {
       el.drawerMusicPlay.textContent = p.isPlaying ? tr('musicPause') : tr('musicPlay');
     }
     if (el.mwLoop) el.mwLoop.classList.toggle('active', m.loop);
     if (el.drawerMusicLoop) el.drawerMusicLoop.classList.toggle('active', m.loop);
-    if (el.mwMute) el.mwMute.classList.toggle('active', m.enabled && state.audio.enabled);
+    const musicAudible = m.enabled && state.audio.enabled;
+    if (el.mwMute) el.mwMute.classList.toggle('active', musicAudible);
+    if (el.mwIconVol && el.mwIconMuted) {
+      el.mwIconVol.classList.toggle('hidden', !musicAudible);
+      el.mwIconMuted.classList.toggle('hidden', musicAudible);
+    }
 
     if (el.toggleMusicWidget) el.toggleMusicWidget.checked = m.showWidget;
     if (el.toggleMusicEnabled) el.toggleMusicEnabled.checked = m.enabled;
