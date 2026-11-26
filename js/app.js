@@ -29,6 +29,7 @@
       intervalSec: 60,
       blurPx: 4,
       dimPct: 35,
+      quality: 'auto',
     },
     design: {
       font: 'font-outfit',
@@ -105,6 +106,8 @@
     valBlur: document.getElementById('val-blur'),
     sliderDim: document.getElementById('slider-dim'),
     valDim: document.getElementById('val-dim'),
+    selectBgQuality: document.getElementById('select-bg-quality'),
+    qualityBadge: document.getElementById('quality-badge'),
     toggleSlideshow: document.getElementById('toggle-slideshow'),
     slideshowIntervalWrap: document.getElementById('slideshow-interval-wrap'),
     selectSlideshowInterval: document.getElementById('select-slideshow-interval'),
@@ -175,6 +178,23 @@
     syncSlideshow();
     renderGallery();
     updateCacheUsage();
+  }
+
+  function syncQualityUI() {
+    const mode = state.background.quality || 'auto';
+    if (el.selectBgQuality) el.selectBgQuality.value = mode;
+    if (el.qualityBadge) {
+      const { tier, reason } = window.OdakBackgrounds.resolveQuality(mode, state.background.blurPx);
+      const labelMap = { low: '480p', medium: '720p', high: '1080p' };
+      el.qualityBadge.textContent = reason ? `${labelMap[tier]} · ${reason}` : labelMap[tier];
+    }
+  }
+
+  function applyActiveBackground(id) {
+    const bg = window.OdakBackgrounds.apply(id, state.background.quality, state.background.blurPx);
+    window.OdakBackgrounds.syncAudio(state.audio.enabled, state.audio.volume);
+    syncQualityUI();
+    return bg;
   }
 
   function persist() {
@@ -421,8 +441,7 @@
 
       tile.addEventListener('click', () => {
         state.background.activeId = bg.id;
-        window.OdakBackgrounds.apply(bg.id);
-        window.OdakBackgrounds.syncAudio(state.audio.enabled, state.audio.volume);
+        applyActiveBackground(bg.id);
         persist();
         renderGallery();
       });
@@ -444,8 +463,7 @@
     const idx = list.indexOf(state.background.activeId);
     const nextId = list[(idx + 1) % list.length];
     state.background.activeId = nextId;
-    const bg = window.OdakBackgrounds.apply(nextId);
-    window.OdakBackgrounds.syncAudio(state.audio.enabled, state.audio.volume);
+    const bg = applyActiveBackground(nextId);
     persist();
     renderGallery();
     showToast(tr('toastBgChanged', { name: bg.name }));
@@ -643,6 +661,19 @@
       persist();
     });
 
+    el.selectBgQuality.addEventListener('change', (e) => {
+      state.background.quality = e.target.value;
+      persist();
+      applyActiveBackground(state.background.activeId);
+    });
+
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    conn?.addEventListener?.('change', () => {
+      if (state.background.quality === 'auto') {
+        applyActiveBackground(state.background.activeId);
+      }
+    });
+
     el.toggleSlideshow.addEventListener('change', (e) => {
       state.background.slideshow = e.target.checked;
       persist();
@@ -823,8 +854,7 @@
 
   async function init() {
     await window.OdakBackgrounds.init();
-    window.OdakBackgrounds.apply(state.background.activeId);
-    window.OdakBackgrounds.syncAudio(state.audio.enabled, state.audio.volume);
+    applyActiveBackground(state.background.activeId);
 
     timerEngine = new window.OdakTimer.TimerEngine(
       state,

@@ -12,7 +12,7 @@
     href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@500;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body class="font-outfit card-glass">
   <!-- Background Layers -->
@@ -268,6 +268,19 @@
           <input type="range" id="slider-dim" min="0" max="85" step="1" value="35" />
         </div>
 
+        <div class="control-group">
+          <div class="section-label-row">
+            <label for="select-bg-quality" class="section-label" data-i18n="qualityLabel">Medya Kalitesi</label>
+            <span id="quality-badge" class="cache-badge">Otomatik</span>
+          </div>
+          <select id="select-bg-quality" class="full-select">
+            <option value="auto" data-i18n="qualityAuto">Otomatik (İnternet Hızına Göre)</option>
+            <option value="low" data-i18n="qualityLow">Düşük (Veri Tasarrufu · 480p)</option>
+            <option value="medium" data-i18n="qualityMedium">Orta (Dengeli · 720p)</option>
+            <option value="high" data-i18n="qualityHigh">Yüksek (HD · 1080p+)</option>
+          </select>
+        </div>
+
         <div class="divider"></div>
 
         <!-- Slideshow Controls -->
@@ -483,11 +496,11 @@
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <!-- Scripts (ordered so file:// and http:// both work seamlessly) -->
-  <script src="js/db.js?v=2"></script>
-  <script src="js/i18n.js?v=2"></script>
-  <script src="js/audio.js?v=2"></script>
-  <script src="js/backgrounds.js?v=2"></script>
-  <script src="js/timer.js?v=2"></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="js/db.js?v=4"></script>
+  <script src="js/i18n.js?v=4"></script>
+  <script src="js/audio.js?v=4"></script>
+  <script src="js/backgrounds.js?v=4"></script>
+  <script src="js/timer.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>

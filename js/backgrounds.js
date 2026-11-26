@@ -184,8 +184,44 @@
       this.customItems = this.customItems.filter((item) => item.id !== id);
     }
 
-    apply(id) {
+    resolveQuality(mode = 'auto', blurPx = 4) {
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (mode === 'low' || mode === 'medium' || mode === 'high') {
+        return { tier: mode, reason: '' };
+      }
+      if (conn) {
+        const eff = (conn.effectiveType || '').toLowerCase();
+        if (conn.saveData || eff === 'slow-2g' || eff === '2g' || eff === '3g' || (typeof conn.downlink === 'number' && conn.downlink < 2.5)) {
+          return { tier: 'low', reason: conn.saveData ? 'SaveData' : eff.toUpperCase() || 'Slow' };
+        }
+        if ((typeof conn.downlink === 'number' && conn.downlink < 8) || blurPx >= 12) {
+          return { tier: 'medium', reason: blurPx >= 12 ? 'Blur Opt.' : eff.toUpperCase() || 'Mid' };
+        }
+        return { tier: 'high', reason: eff ? eff.toUpperCase() : 'HD' };
+      }
+      if (blurPx >= 10) {
+        return { tier: 'medium', reason: 'Blur Opt.' };
+      }
+      return { tier: 'high', reason: 'HD' };
+    }
+
+    optimizeImageUrl(url, tier) {
+      if (!url || !url.includes('images.unsplash.com')) return url;
+      const wMap = { low: 800, medium: 1280, high: 1920 };
+      const qMap = { low: 65, medium: 75, high: 85 };
+      try {
+        const u = new URL(url);
+        u.searchParams.set('w', String(wMap[tier] || 1280));
+        u.searchParams.set('q', String(qMap[tier] || 75));
+        return u.toString();
+      } catch (_) {
+        return url;
+      }
+    }
+
+    apply(id, qualityMode = 'auto', blurPx = 4) {
       const bg = this.getById(id);
+      const { tier } = this.resolveQuality(qualityMode, blurPx);
       this.stopCanvas();
       this.canvasEl.classList.add('hidden');
       this.imgEl.classList.add('hidden');
@@ -198,9 +234,11 @@
 
       if (bg.kind === 'canvas') {
         this.canvasEl.classList.remove('hidden');
-        this.startCanvas(bg.preset);
+        this.startCanvas(bg.preset, tier);
       } else if (bg.kind === 'youtube' && bg.youtubeId && this.youtubeEl) {
-        this.youtubeEl.src = `https://www.youtube.com/embed/${bg.youtubeId}?autoplay=1&mute=0&loop=1&playlist=${bg.youtubeId}&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`;
+        const vqMap = { low: 'medium', medium: 'hd720', high: 'hd1080' };
+        const vq = vqMap[tier] || 'hd720';
+        this.youtubeEl.src = `https://www.youtube.com/embed/${bg.youtubeId}?autoplay=1&mute=0&loop=1&playlist=${bg.youtubeId}&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&vq=${vq}`;
         this.youtubeEl.classList.remove('hidden');
       } else if (bg.kind === 'video') {
         this.videoEl.src = bg.url;
@@ -215,9 +253,9 @@
           // Fallback to aurora canvas if offline and external image fails
           this.imgEl.classList.add('hidden');
           this.canvasEl.classList.remove('hidden');
-          this.startCanvas('aurora');
+          this.startCanvas('aurora', tier);
         };
-        this.imgEl.src = bg.url;
+        this.imgEl.src = this.optimizeImageUrl(bg.url, tier);
         this.imgEl.classList.remove('hidden');
       }
       return bg;
@@ -248,13 +286,15 @@
       }
     }
 
-    startCanvas(preset) {
+    startCanvas(preset, tier = 'medium') {
       this.activePreset = preset;
       const canvas = this.canvasEl;
       const ctx = canvas.getContext('2d');
+      const scaleMap = { low: 0.65, medium: 0.9, high: 1.0 };
+      const scale = scaleMap[tier] || 0.9;
       const resize = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        canvas.width = Math.max(320, Math.floor(window.innerWidth * scale));
+        canvas.height = Math.max(180, Math.floor(window.innerHeight * scale));
       };
       resize();
       window.onresize = resize;
