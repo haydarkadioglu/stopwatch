@@ -1896,9 +1896,8 @@
         }
 
         const id = 'music-' + Date.now();
-        const plMeta = await window.OdakMusic.player.fetchPlaylistMeta(parsed.listId);
-        const title = plMeta?.title || 'YouTube Playlist';
-        const item = { id, title, ...parsed };
+        const fallbackTitle = 'YouTube Playlist';
+        const item = { id, title: fallbackTitle, ...parsed };
         state.music.items.unshift(item);
         state.music.activeId = id;
         expandedMusicId = id;
@@ -1908,6 +1907,19 @@
         persist();
         renderMusicList();
         syncMusicUI();
+        window.OdakMusic.player.fetchPlaylistMeta(parsed.listId).then((plMeta) => {
+          if (
+            !plMeta?.title ||
+            item.title !== fallbackTitle ||
+            !state.music.items.includes(item)
+          ) {
+            return;
+          }
+          item.title = plMeta.title;
+          persist();
+          renderMusicList();
+          syncMusicUI();
+        });
         showToast(tr('toastMusicAdded'));
         return;
       }

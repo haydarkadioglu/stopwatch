@@ -208,6 +208,11 @@
               this.applyAudio();
               this.player.setLoop?.(this.loop);
               this.player.setShuffle?.(this.shuffle);
+              const pending = this.pendingSource;
+              if (pending && pending.item !== item) {
+                this.load(pending.item, pending.autoPlay);
+                return;
+              }
               if (this.pendingSource?.autoPlay) {
                 this.player.playVideo?.();
               }
