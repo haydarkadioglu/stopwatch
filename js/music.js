@@ -71,6 +71,7 @@
       this.unavailableIds = new Set();
       this.consecutiveErrors = 0;
       this.onStateChange = null;
+      this.onVideoMeta = null;
     }
 
     ensureApi() {
@@ -119,7 +120,7 @@
             thumb: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
           };
           this.metaCache.set(videoId, meta);
-          this.onStateChange?.();
+          this.onVideoMeta?.(meta);
           return meta;
         }
       } catch (_) {}

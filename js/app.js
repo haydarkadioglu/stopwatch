@@ -623,24 +623,42 @@
     renderMusicList();
   }
 
-  let queueObserver = null;
+  const queueObservers = new WeakMap();
 
   function observeLazyTrackMeta(container) {
     if (!container || typeof IntersectionObserver === 'undefined') return;
-    if (queueObserver) queueObserver.disconnect();
-    queueObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const vid = entry.target.dataset.vid;
-            if (vid) window.OdakMusic.player.fetchVideoMeta(vid);
-            queueObserver.unobserve(entry.target);
-          }
-        });
-      },
-      { root: container, rootMargin: '120px' }
-    );
-    container.querySelectorAll('[data-vid]').forEach((node) => queueObserver.observe(node));
+    let observer = queueObservers.get(container);
+    if (!observer) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const vid = entry.target.dataset.vid;
+              if (vid) window.OdakMusic.player.fetchVideoMeta(vid);
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { root: container, rootMargin: '120px' }
+      );
+      queueObservers.set(container, observer);
+    }
+    observer.disconnect();
+    container.querySelectorAll('[data-vid]').forEach((node) => observer.observe(node));
+  }
+
+  function updateTrackMetaInDom(meta) {
+    if (!meta?.videoId || !meta.title) return;
+    document.querySelectorAll('[data-vid]').forEach((row) => {
+      if (row.dataset.vid !== meta.videoId) return;
+      const title = row.querySelector('.queue-title, .ml-track-name');
+      if (title) {
+        title.textContent = row.classList.contains('unavailable')
+          ? `${meta.title} — ${tr('trackUnavailable')}`
+          : meta.title;
+      }
+      delete row.dataset.vid;
+    });
   }
 
   function renderMusicQueue() {
@@ -2178,6 +2196,7 @@
     if (state.design.keepAwake) syncWakeLock(false);
     if (state.weather.enabled) refreshWeather(false);
     window.OdakMusic.player.onStateChange = syncMusicUI;
+    window.OdakMusic.player.onVideoMeta = updateTrackMetaInDom;
     window.OdakMusic.player.setLoop(state.music.loop);
     window.OdakMusic.player.setShuffle(Boolean(state.music.shuffle));
     const activeMusic = state.music.items.find((x) => x.id === state.music.activeId) || state.music.items[0];
