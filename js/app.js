@@ -2209,6 +2209,9 @@
     if (state.weather.enabled) refreshWeather(false);
     window.OdakMusic.player.onStateChange = syncMusicUI;
     window.OdakMusic.player.onVideoMeta = updateTrackMetaInDom;
+    window.OdakMusic.player.onPlaybackError = (code) => {
+      showToast(tr('toastMusicPlaybackError', { code }));
+    };
     window.OdakMusic.player.setLoop(state.music.loop);
     window.OdakMusic.player.setShuffle(Boolean(state.music.shuffle));
     const activeMusic = state.music.items.find((x) => x.id === state.music.activeId) || state.music.items[0];

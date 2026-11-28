@@ -72,6 +72,7 @@
       this.consecutiveErrors = 0;
       this.onStateChange = null;
       this.onVideoMeta = null;
+      this.onPlaybackError = null;
     }
 
     ensureApi() {
@@ -231,8 +232,11 @@
               this.syncMeta();
               this.onStateChange?.();
             },
-            onError: () => {
+            onError: (e) => {
               this.consecutiveErrors += 1;
+              if (this.consecutiveErrors === 1) {
+                this.onPlaybackError?.(e.data);
+              }
               const idx = this.player?.getPlaylistIndex?.();
               const failedId =
                 (typeof idx === 'number' && idx >= 0 && this.playlistIds[idx]) ||
